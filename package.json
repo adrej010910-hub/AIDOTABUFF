@@ -26,15 +26,15 @@
     },
     "files": [
       "src/**/*",
+      "build/**/*",
       "package.json"
     ],
     "win": {
+      "icon": "build/dota2.ico",
       "target": [
         {
           "target": "nsis",
-          "arch": [
-            "x64"
-          ]
+          "arch": ["x64"]
         }
       ],
       "artifactName": "DOTA-AI-Setup-${version}.${ext}"
