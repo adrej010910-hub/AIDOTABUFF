@@ -31,6 +31,28 @@ jobs:
 
       - name: Build Windows installer
         run: npm run dist:win
+        env:
+          # Configure these repository secrets after obtaining a trusted code-signing certificate.
+          # WINDOWS_CERTIFICATE_P12 must contain the base64-encoded PFX/P12 file.
+          CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE_P12 }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+
+      - name: Verify installer signature
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path release -Filter *.exe | Select-Object -First 1
+          if (-not $installer) { throw "Installer EXE was not produced." }
+          $signature = Get-AuthenticodeSignature -FilePath $installer.FullName
+          if ($env:EXPECT_SIGNED -eq "true" -and $signature.Status -ne "Valid") {
+            throw "Expected a valid Authenticode signature, got: $($signature.Status)"
+          }
+          if ($signature.Status -eq "Valid") {
+            Write-Host "Valid signature: $($signature.SignerCertificate.Subject)"
+          } else {
+            Write-Warning "Installer is unsigned. Add WINDOWS_CERTIFICATE_P12 and WINDOWS_CERTIFICATE_PASSWORD repository secrets to produce a signed build."
+          }
+        env:
+          EXPECT_SIGNED: ${{ secrets.WINDOWS_CERTIFICATE_P12 != '' && 'true' || 'false' }}
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
