@@ -103,9 +103,11 @@ function navigate(page){if(!pages.includes(page))return;document.querySelectorAl
 document.querySelectorAll("[data-page]").forEach(b=>b.addEventListener("click",()=>navigate(b.dataset.page)));
 document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>navigate(b.dataset.go)));
 document.querySelectorAll("[data-prompt]").forEach(b=>b.addEventListener("click",()=>{navigate("assistant");setTimeout(()=>{$("chatInput").value=b.dataset.prompt;$("chatInput").focus();},0);}));
-$("close").addEventListener("click",()=>window.dotaAI.hide());$("minimize").addEventListener("click",()=>window.dotaAI.hide());$("compactMode").addEventListener("click",()=>window.dotaAI.setMiniMode(true));
+$("close").addEventListener("click",()=>window.dotaAI.hide());$("minimize").addEventListener("click",()=>window.dotaAI.hide());$("compactMode").addEventListener("click",()=>window.dotaAI.setMiniMode("bubble"));
 $("newSessionTop").addEventListener("click",()=>{navigate("assistant");newSession();});$("newSession").addEventListener("click",()=>newSession());
-window.dotaAI.onMiniState(isMini=>{document.body.classList.toggle("mini-mode",isMini);$("miniStatus").textContent=latestMatch?"MATCH · LIVE":"AI READY";});
+window.dotaAI.onMiniState(state=>{const isMini=typeof state==="object"?state.mini:state;const isBubble=typeof state==="object"&&state.bubble;document.body.classList.toggle("mini-mode",Boolean(isMini));document.body.classList.toggle("bubble-mode",Boolean(isBubble));$("miniStatus").textContent=latestMatch?"MATCH · LIVE":"AI READY";});
+$("bubbleMode").addEventListener("click",()=>window.dotaAI.setMiniMode("bubble"));
+$("bubbleExpand").addEventListener("click",()=>window.dotaAI.setMiniMode(false));
 $("expandMode").addEventListener("click",()=>window.dotaAI.setMiniMode(false));
 $("miniHide").addEventListener("click",()=>window.dotaAI.hide());
 window.dotaAI.onMatchUpdate(data=>{latestMatch=data;renderMatch(data);refreshQuickLiveContext();});
