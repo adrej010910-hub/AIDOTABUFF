@@ -1,67 +1,32 @@
-const $ = id => document.getElementById(id);
-function navigate(page) {
-  document.querySelectorAll(".page").forEach(el => el.classList.toggle("hidden", el.id !== page));
-  document.querySelectorAll(".nav").forEach(el => el.classList.toggle("active", el.dataset.page === page));
-}
-document.querySelectorAll(".nav").forEach(btn => btn.addEventListener("click", () => navigate(btn.dataset.page)));
-$("close").addEventListener("click", () => window.dotaAI.hide());
-$("minimize").addEventListener("click", () => window.dotaAI.hide());
-
-function renderMatch(data) {
-  const a = data.analysis;
-  $("connection").textContent = "LIVE";
-  $("hero").textContent = a.hero;
-  $("meta").textContent = `Матч · ${a.minutes}:${String(a.gameTime % 60).padStart(2,"0")}`;
-  $("level").textContent = a.level || "—";
-  $("kills").textContent = a.kills;
-  $("deaths").textContent = a.deaths;
-  $("assists").textContent = a.assists;
-  $("gold").textContent = a.gold.toLocaleString("ru-RU");
-  $("action").textContent = a.action.title;
-  $("detail").textContent = a.action.detail;
-  $("reason").textContent = a.action.reason;
-  $("priority").textContent = a.action.priority === "high" ? "ВЫСОКИЙ ПРИОРИТЕТ" : "ОБЫЧНЫЙ ПРИОРИТЕТ";
-  $("phase").textContent = a.phase;
-  $("data").textContent = "GSI подключён";
-}
-window.dotaAI.onMatchUpdate(renderMatch);
-window.dotaAI.onSetupStatus(data => {
-  $("setupText").textContent = data.message;
-});
-window.dotaAI.onNavigate(navigate);
-window.dotaAI.onDemo(() => {
-  $("connection").textContent = "DEMO";
-  $("hero").textContent = "Juggernaut";
-  $("meta").textContent = "Демонстрационный сценарий";
-  $("level").textContent = "14";
-  $("kills").textContent = "5"; $("deaths").textContent = "2"; $("assists").textContent = "8"; $("gold").textContent = "2 450";
-  $("action").textContent = "Проверь карту и сыграй с командой";
-  $("detail").textContent = "Не начинай одиночную драку. Оцени готовность союзников и доступные объекты.";
-  $("reason").textContent = "Это демонстрационные данные, не реальный матч.";
-  $("phase").textContent = "Середина игры"; $("data").textContent = "Демо";
-});
-async function init() {
-  const status = await window.dotaAI.getStatus();
-  $("version").textContent = status.version;
-  const settings = await window.dotaAI.getSettings();
-  $("startup").checked = settings.launchAtLogin;
-  $("showLaunch").checked = settings.showOnLaunch;
-  $("voice").checked = settings.voiceEnabled;
-  const latest = await window.dotaAI.getLatestMatch();
-  if (latest) renderMatch(latest);
-  $("setupText").textContent = status.dotaFound ? "Dota 2 обнаружена. Интеграция настраивается автоматически." : "Dota 2 пока не найдена. Можно указать путь позднее.";
-}
-async function save() {
-  await window.dotaAI.saveSettings({
-    launchAtLogin: $("startup").checked,
-    showOnLaunch: $("showLaunch").checked,
-    voiceEnabled: $("voice").checked
-  });
-}
-["startup","showLaunch","voice"].forEach(id => $(id).addEventListener("change", save));
-$("retrySetup").addEventListener("click", async () => {
-  $("setupText").textContent = "Поиск и настройка...";
-  const result = await window.dotaAI.setupDota();
-  $("setupText").textContent = result.message;
-});
-init();
+const $=id=>document.getElementById(id);
+let sessionActive=false,match=null,history=JSON.parse(localStorage.getItem("dotaai.sessions")||"[]"),activeHistoryId=null;
+const saveHistory=()=>localStorage.setItem("dotaai.sessions",JSON.stringify(history));
+function toast(message){$("toast").textContent=message;$("toast").classList.remove("hidden");clearTimeout(toast.timer);toast.timer=setTimeout(()=>$("toast").classList.add("hidden"),2800);}
+function drawHistory(){const list=$("sessionList");list.innerHTML="";$("emptySessions").classList.toggle("hidden",history.length>0);$("totalSessions").textContent=history.length;$("sessionCount").textContent=history.length+" СЕССИЙ";$("lastPlayed").textContent=history.length?new Date(history[history.length-1].started).toLocaleDateString("ru-RU",{day:"numeric",month:"short"}):"—";history.slice().reverse().forEach(s=>{const row=document.createElement("div");row.className="session-row";const avatar=document.createElement("div");avatar.className="session-avatar";avatar.textContent="D";const date=document.createElement("div");date.className="session-date";const title=document.createElement("b");title.textContent="Сессия от "+new Date(s.started).toLocaleString("ru-RU");const sub=document.createElement("small");sub.textContent=s.hero||"Матч Dota 2";date.append(title,sub);const dur=document.createElement("span");dur.className="duration";dur.textContent=s.duration||"В процессе";row.append(avatar,date,dur);list.append(row);});}
+function beginHistory(){if(activeHistoryId)return;const pending=history.slice().reverse().find(s=>s.duration==="В процессе");if(pending){activeHistoryId=pending.id;return;}const item={id:Date.now(),started:Date.now(),hero:match?.analysis?.hero||"Dota 2",duration:"В процессе"};history.push(item);activeHistoryId=item.id;saveHistory();drawHistory();}
+function finishHistory(){if(!activeHistoryId)return;const item=history.find(s=>s.id===activeHistoryId);if(item){item.duration=Math.max(1,Math.round((Date.now()-item.started)/60000))+" мин";}activeHistoryId=null;saveHistory();drawHistory();}
+function showTab(tab){$("sessionsPage").classList.toggle("hidden",tab!=="sessions");$("notesPage").classList.toggle("hidden",tab!=="notes");document.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));}
+function closeDialog(){$("dialog").classList.add("hidden");$("dialogBody").innerHTML="";}
+function openDialog(title,eyebrow,body){$("dialogTitle").textContent=title;$("dialogEyebrow").textContent=eyebrow;$("dialogBody").innerHTML=body;$("dialog").classList.remove("hidden");}
+async function start(){try{const result=await window.dotaAI.startSession();if(!sessionActive){sessionActive=true;beginHistory();}updateSessionUi(true);$("connectionText").textContent="СЕССИЯ АКТИВНА";toast(result.message||"Игровая сессия началась.");}catch(e){toast("Не удалось начать сессию: "+e.message);}}
+async function end(){if(!sessionActive)return;try{await window.dotaAI.endSession();sessionActive=false;finishHistory();updateSessionUi(false);$("connectionText").textContent="СЕССИЯ ЗАВЕРШЕНА";toast("Игровая сессия завершена.");}catch(e){toast("Не удалось завершить сессию: "+e.message);}}
+function updateSessionUi(active){$("startSession").innerHTML=active?"■ <span>Завершить сессию</span>":"▶ <span>Начать сессию</span>";$("connectionSummary").textContent=active?"Активна":"Ожидание";}
+$("startSession").onclick=()=>sessionActive?end():start();$("emptyStart").onclick=start;
+$("menuToggle")?.addEventListener("click",()=>$("menuPanel").classList.toggle("hidden"));
+$("menuClose").onclick=()=>$("menuPanel").classList.add("hidden");
+$("profile").onclick=()=>$("menuPanel").classList.toggle("hidden");
+$("showHistory").onclick=()=>{$("menuPanel").classList.add("hidden");showTab("sessions");};
+$("openSettings").onclick=async()=>{$("menuPanel").classList.add("hidden");let status={};try{status=await window.dotaAI.getStatus();}catch{}openDialog("Подключение Dota 2","ИНТЕГРАЦИЯ",'<p class="muted">DOTA AI получает игровые события через Game State Integration.</p><p id="setupResult" class="muted">'+(status.dotaFound?"Игра найдена на компьютере.":"Путь к игре пока не определён.")+'</p><div class="dialog-actions"><button class="secondary" id="checkDota">Проверить подключение</button><button class="primary" id="setupDota">Настроить Dota 2</button></div>');$("checkDota").onclick=async()=>{const s=await window.dotaAI.getStatus();$("setupResult").textContent=s.connected?"Получаем данные матча.":"Игра найдена: "+(s.dotaFound?"да":"нет")+". Ожидание игровых данных.";};$("setupDota").onclick=async()=>{const r=await window.dotaAI.setupDota();$("setupResult").textContent=r.message||(r.ok?"Настройка выполнена.":"Не удалось настроить подключение.");};};
+$("editContext").onclick=()=>{$("menuPanel").classList.add("hidden");const current=localStorage.getItem("dotaai.context")||"Учитывай текущую роль героя, стадию матча, доступное золото и составы команд. Давай короткие практические рекомендации.";openDialog("Контекст AI","ПЕРСОНАЛИЗАЦИЯ",'<label for="contextText">Инструкции для игрового помощника</label><textarea id="contextText"></textarea><div class="dialog-actions"><button class="secondary" id="cancelContext">Отмена</button><button class="primary" id="saveContext">Сохранить</button></div>');$("contextText").value=current;$("cancelContext").onclick=closeDialog;$("saveContext").onclick=()=>{localStorage.setItem("dotaai.context",$("contextText").value);closeDialog();toast("Контекст сохранён на этом компьютере.");};};
+$("openProfile").onclick=()=>{$("menuPanel").classList.add("hidden");openDialog("Профиль игрока","ЛОКАЛЬНЫЙ ПРОФИЛЬ",'<label for="playerName">Имя игрока</label><input id="playerName" maxlength="32" placeholder="Как к тебе обращаться?"><div class="dialog-actions"><button class="primary" id="saveProfile">Сохранить профиль</button></div>');$("playerName").value=localStorage.getItem("dotaai.playerName")||"";$("saveProfile").onclick=()=>{localStorage.setItem("dotaai.playerName",$("playerName").value.trim());closeDialog();toast("Профиль сохранён.");};};
+$("exitApp").onclick=()=>window.dotaAI.quitApp();$("minimize").onclick=()=>window.dotaAI.minimizeWindow();$("close").onclick=()=>window.dotaAI.minimizeWindow();$("dialogClose").onclick=closeDialog;$("dialog").addEventListener("click",e=>{if(e.target===$("dialog"))closeDialog();});
+document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+$("notes").value=localStorage.getItem("dotaai.notes")||"";function saveNotes(){localStorage.setItem("dotaai.notes",$("notes").value);$("notesSaved").textContent="Сохранено в "+new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});toast("Заметки сохранены.");}$("saveNotes").onclick=saveNotes;$("notes").addEventListener("input",()=>localStorage.setItem("dotaai.notes",$("notes").value));
+$("search").addEventListener("input",()=>{const q=$("search").value.toLowerCase();document.querySelectorAll(".session-row").forEach(row=>row.classList.toggle("hidden",!row.textContent.toLowerCase().includes(q)));});
+window.dotaAI.onMatchUpdate(data=>{match=data;if(data?.analysis){$("connectionText").textContent="DOTA 2 ПОДКЛЮЧЕНА";$("connectionSummary").textContent="Подключена";$("connectionDot").classList.add("online");}});
+window.dotaAI.onConnectionState(s=>{if(s.connected){$("connectionText").textContent="DOTA 2 ПОДКЛЮЧЕНА";$("connectionSummary").textContent="Подключена";$("connectionDot").classList.add("online");}});
+window.dotaAI.onSessionState(state=>{if(state.active&&!sessionActive){sessionActive=true;beginHistory();}else if(!state.active&&sessionActive){sessionActive=false;finishHistory();}updateSessionUi(state.active);});
+async function saveSettings(){try{await window.dotaAI.saveSettings({launchAtLogin:$("startup").checked,showOnLaunch:$("showLaunch").checked});toast("Настройки обновлены.");}catch(e){toast("Ошибка сохранения настроек: "+e.message);}}
+$("startup").onchange=saveSettings;$("showLaunch").onchange=saveSettings;
+async function init(){const [status,settings,session]=await Promise.all([window.dotaAI.getStatus(),window.dotaAI.getSettings(),window.dotaAI.getSession()]);$("startup").checked=!!settings.launchAtLogin;$("showLaunch").checked=!!settings.showOnLaunch;sessionActive=session.active;if(sessionActive){beginHistory();}updateSessionUi(sessionActive);if(status.connected){$("connectionText").textContent="DOTA 2 ПОДКЛЮЧЕНА";$("connectionDot").classList.add("online");$("connectionSummary").textContent="Подключена";}drawHistory();}
+init().catch(e=>toast("Не удалось загрузить данные: "+e.message));

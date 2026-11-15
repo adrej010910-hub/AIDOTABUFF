@@ -1,31 +1,12 @@
 <!doctype html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>DOTA AI</title><link rel="stylesheet" href="style.css">
-</head>
-<body>
-<div class="window">
-  <header><div class="brand"><div class="mark">D</div><div><b>DOTA AI</b><small>SMART MATCH COMPANION</small></div></div><div class="head-actions"><span id="connection" class="pill">ОЖИДАНИЕ</span><button id="minimize">—</button><button id="close">×</button></div></header>
-  <nav><button class="nav active" data-page="match">Матч</button><button class="nav" data-page="settings">Настройки</button></nav>
-  <main id="match" class="page">
-    <div class="intro"><div><small>ТВОЙ ГЕРОЙ</small><h1 id="hero">Ожидание Dota 2</h1><p id="meta">Запусти игру — приложение подключится автоматически</p></div><div class="level"><small>LVL</small><b id="level">—</b></div></div>
-    <div class="stats"><div><small>K</small><b id="kills">—</b></div><div><small>D</small><b id="deaths">—</b></div><div><small>A</small><b id="assists">—</b></div><div><small>GOLD</small><b id="gold">—</b></div></div>
-    <section class="card accent"><div class="card-head">РЕКОМЕНДАЦИЯ <span id="priority">●</span></div><h2 id="action">Пока нет данных матча</h2><p id="detail">DOTA AI будет анализировать доступные игровые показатели и показывать краткие подсказки.</p><small id="reason">Ожидается подключение через GSI</small></section>
-    <section class="card"><div class="card-head">АНАЛИЗ МАТЧА <span id="phase">—</span></div><div class="row"><span>Состояние подключения</span><b id="data">Не подключено</b></div><div class="row"><span>Следующая покупка</span><b>Модуль в разработке</b></div><div class="row"><span>Шанс победы</span><b>Модуль в разработке</b></div></section>
-    <p class="footnote">Советы не управляют героем и используют только доступные игровые данные.</p>
-  </main>
-  <main id="settings" class="page hidden">
-    <h1>Настройки</h1>
-    <section class="card">
-      <label class="setting"><span><b>Запуск вместе с Windows</b><small>Автоматически запускать DOTA AI при входе в систему</small></span><input type="checkbox" id="startup" checked></label>
-      <label class="setting"><span><b>Показывать окно при запуске</b><small>Если выключено, приложение останется в трее</small></span><input type="checkbox" id="showLaunch"></label>
-      <label class="setting"><span><b>Голосовые подсказки</b><small>Подготовка к следующему этапу</small></span><input type="checkbox" id="voice"></label>
-    </section>
-    <section class="card"><div class="card-head">ПОДКЛЮЧЕНИЕ К DOTA 2</div><p id="setupText">Проверка папки игры...</p><button id="retrySetup" class="primary">Найти и настроить Dota 2</button><p class="hint">Горячая клавиша: Ctrl + Shift + Space — показать или скрыть оверлей.</p></section>
-    <section class="card"><div class="card-head">О ПРИЛОЖЕНИИ</div><div class="row"><span>Версия</span><b id="version">0.2.0</b></div><div class="row"><span>AI-режим</span><b>Гибридный (локальные правила)</b></div></section>
-  </main>
-  <footer><span>DOTA AI · PRIVATE LOCAL ANALYSIS</span><span>v0.2.0</span></footer>
+<html lang="ru"><head><meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self';"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DOTA AI</title><link rel="stylesheet" href="style.css"></head>
+<body><main class="app-shell">
+<header class="titlebar"><div class="brand"><span class="brand-mark">D</span><span class="brand-name">DOTA<span>AI</span><small> MATCH COMPANION</small></span></div><div class="searchbox"><span>⌕</span><input id="search" placeholder="Поиск по сессиям и заметкам..."><kbd>Ctrl K</kbd></div><div class="window-actions"><button id="profile" title="Профиль">♙</button><button id="minimize" title="Свернуть">—</button><button id="close" title="Скрыть">×</button></div></header>
+<section class="page-heading"><div><div class="eyebrow">ТВОЯ ИГРОВАЯ СТАТИСТИКА</div><h1>Мои сессии</h1><p>История матчей, заметки и игровые наблюдения</p></div><div class="heading-actions"><div class="tabs"><button class="tab active" data-tab="sessions">Сессии</button><button class="tab" data-tab="notes">Заметки</button></div><button class="primary" id="startSession">▶ <span>Начать сессию</span></button></div></section>
+<div class="content">
+<section id="sessionsPage" class="page-content"><div class="summary-grid"><article class="summary-card"><span class="summary-icon">⚔</span><div><small>ВСЕГО СЕССИЙ</small><b id="totalSessions">0</b></div></article><article class="summary-card"><span class="summary-icon">◷</span><div><small>ПОСЛЕДНЯЯ ИГРА</small><b id="lastPlayed">—</b></div></article><article class="summary-card"><span class="summary-icon">◉</span><div><small>ПОДКЛЮЧЕНИЕ</small><b id="connectionSummary">Ожидание</b></div></article></div><div class="section-title"><div><h2>Недавние сессии</h2><p>Твои последние игровые запуски</p></div><span class="count-pill" id="sessionCount">0 СЕССИЙ</span></div><div id="emptySessions" class="empty-state"><div class="empty-emblem">D</div><b>Здесь пока тихо</b><p>Начни игровую сессию, и DOTA AI сохранит её в истории.</p><button class="primary" id="emptyStart">▶ Начать первую сессию</button></div><div id="sessionList" class="session-list"></div></section>
+<section id="notesPage" class="page-content hidden"><div class="notes-card"><div class="section-title"><div><h2>Мои заметки</h2><p>Записывай идеи, игровые выводы и планы на следующие матчи</p></div><span class="count-pill">ЛОКАЛЬНО</span></div><textarea id="notes" placeholder="Например: попробовать другой билд на герое, обратить внимание на тайминги..."></textarea><div class="notes-footer"><span id="notesSaved">Заметки хранятся на этом компьютере</span><button class="primary" id="saveNotes">Сохранить заметки</button></div></div></section>
 </div>
-<script src="renderer.js"></script>
-</body></html>
+<div class="statusbar"><span><i id="connectionDot"></i><b id="connectionText">ОЖИДАНИЕ DOTA 2</b></span><span class="status-right">DOTA AI <b>v0.2.0</b></span></div>
+<section class="menu-panel hidden" id="menuPanel"><div class="menu-head"><div><small>ПАНЕЛЬ УПРАВЛЕНИЯ</small><b>Настройки</b></div><button id="menuClose">×</button></div><div class="menu-label">ПОВЕДЕНИЕ ПРИЛОЖЕНИЯ</div><label class="setting"><span><b>Запуск вместе с Windows</b><small>Автоматически открывать DOTA AI</small></span><input type="checkbox" id="startup"></label><label class="setting"><span><b>Показывать окно при запуске</b><small>Не запускать приложение свёрнутым</small></span><input type="checkbox" id="showLaunch"></label><div class="menu-label menu-label-spaced">ИНСТРУМЕНТЫ</div><button class="menu-item" id="openSettings">⚙ <span>Подключение Dota 2</span><span>›</span></button><button class="menu-item" id="editContext">▤ <span>Контекст AI</span><span>›</span></button><button class="menu-item" id="showHistory">☷ <span>История сессий</span><span>›</span></button><button class="menu-item" id="openProfile">♙ <span>Профиль игрока</span><span>›</span></button><button class="menu-item danger" id="exitApp">⏻ <span>Выход из программы</span></button><footer class="menu-footer"><span>DOTA AI</span><span>v0.2.0</span><span>LOCAL BUILD</span></footer></section>
+<section class="dialog hidden" id="dialog"><div class="dialog-card"><div class="dialog-head"><div><small id="dialogEyebrow">DOTA AI</small><h2 id="dialogTitle">Настройки</h2></div><button id="dialogClose">×</button></div><div id="dialogBody"></div></div></section><div class="toast hidden" id="toast"></div></main><script src="renderer.js"></script></body></html>
