@@ -84,8 +84,8 @@ function setMiniMode(mode) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   const bounds = mainWindow.getBounds();
   const target = mode === "bubble" ? "bubble" : mode ? "compact" : "full";
-  const nextWidth = target === "bubble" ? 76 : target === "compact" ? 360 : WINDOW_WIDTH;
-  const nextHeight = target === "bubble" ? 76 : target === "compact" ? 88 : WINDOW_HEIGHT;
+  const nextWidth = target === "bubble" ? 88 : target === "compact" ? 360 : WINDOW_WIDTH;
+  const nextHeight = target === "bubble" ? 88 : target === "compact" ? 88 : WINDOW_HEIGHT;
   mainWindow.setMinimumSize(target === "full" ? 760 : nextWidth, target === "full" ? 600 : nextHeight);
   mainWindow.setMaximumSize(target === "full" ? 10000 : nextWidth, target === "full" ? 10000 : nextHeight);
   mainWindow.setSize(nextWidth, nextHeight);
