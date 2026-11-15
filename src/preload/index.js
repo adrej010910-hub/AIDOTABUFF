@@ -5,6 +5,8 @@ contextBridge.exposeInMainWorld("dotaAI", {
   getLatestMatch: () => ipcRenderer.invoke("match:get-latest"),
   getSettings: () => ipcRenderer.invoke("settings:get"),
   saveSettings: (settings) => ipcRenderer.invoke("settings:save", settings),
+  sendChat: (content, history) => ipcRenderer.invoke("ai:chat", content, history),
+  testAI: () => ipcRenderer.invoke("ai:test"),
   setupDota: (folder) => ipcRenderer.invoke("dota:setup", folder),
   openPath: (target) => ipcRenderer.invoke("shell:open-path", target),
   hide: () => ipcRenderer.send("overlay:hide"),
