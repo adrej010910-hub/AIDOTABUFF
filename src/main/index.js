@@ -1,6 +1,5 @@
 const { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, ipcMain, shell } = require("electron");
 const path = require("node:path");
-const fs = require("node:fs");
 const { createGsiServer } = require("../integrations/gsi-server");
 const { findDotaInstall, installGsiConfig } = require("../integrations/dota-setup");
 const { analyzeMatch } = require("../core/rules-engine");
@@ -8,6 +7,8 @@ const { loadSettings, saveSettings } = require("../core/settings");
 
 const APP_ID = "com.dotaai.desktop";
 const PORT = 3000;
+const WINDOW_WIDTH = 460;
+const WINDOW_HEIGHT = 780;
 let mainWindow;
 let tray;
 let gsiServer;
@@ -20,18 +21,36 @@ if (!gotLock) app.quit();
 
 function makeWindow() {
   mainWindow = new BrowserWindow({
-    width: 420, height: 720, minWidth: 360, minHeight: 520,
-    show: false, frame: false, transparent: true, alwaysOnTop: true,
-    resizable: true, skipTaskbar: true, backgroundColor: "#00000000",
+    width: WINDOW_WIDTH,
+    height: WINDOW_HEIGHT,
+    minWidth: WINDOW_WIDTH,
+    maxWidth: WINDOW_WIDTH,
+    minHeight: WINDOW_HEIGHT,
+    maxHeight: WINDOW_HEIGHT,
+    useContentSize: true,
+    show: false,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    minimizable: true,
+    skipTaskbar: true,
+    backgroundColor: "#00000000",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
-      contextIsolation: true, nodeIntegration: false, sandbox: true
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
     }
   });
   mainWindow.setAlwaysOnTop(true, "screen-saver");
   mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
   mainWindow.on("closed", () => { mainWindow = null; });
-  if (!process.argv.includes("--hidden") && settings.showOnLaunch) mainWindow.once("ready-to-show", () => mainWindow.show());
+  if (!process.argv.includes("--hidden") && settings.showOnLaunch) {
+    mainWindow.once("ready-to-show", () => mainWindow.show());
+  }
 }
 
 function send(channel, payload) {
@@ -45,8 +64,9 @@ function showOverlay() {
 }
 
 function createTray() {
-  // Electron uses an empty native image if no icon asset is bundled yet.
-  tray = new Tray(nativeImage.createEmpty());
+  const iconPath = path.join(__dirname, "../../build/dota2-mark.svg");
+  const icon = nativeImage.createFromPath(iconPath);
+  tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
   tray.setToolTip("DOTA AI");
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: "Открыть DOTA AI", click: showOverlay },
