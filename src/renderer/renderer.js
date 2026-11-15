@@ -131,54 +131,93 @@ function setAssistantMode(mode){
   if(assistantMode==="quick")refreshQuickLiveContext();
 }
 document.querySelectorAll("[data-assistant-tab]").forEach(b=>b.addEventListener("click",()=>setAssistantMode(b.dataset.assistantTab)));
+
+const quickActionNames={
+  pick:"Пик и контрпик",items:"Следующий предмет",farm:"Фарм и перемещение",
+  fight:"Драться или отступить",push:"Атака и башни",roshan:"Рошан",
+  defend:"Защита и камбэк",now:"Что делать прямо сейчас"
+};
+const quickActionGoals={
+  pick:"Оцени текущую стадию драфта, моего героя и доступные сведения о пиках обеих команд. Если пик уже зафиксирован, предложи план игры на выбранном герое. Если составы команд недоступны, прямо скажи об этом и не выдумывай героев.",
+  items:"По моему герою, текущему золоту, инвентарю, уровню и стадии матча назови ОДИН лучший следующий предмет. Коротко объясни, почему он сейчас полезнее альтернатив. Не советуй уже купленные предметы.",
+  farm:"С учётом моего героя, уровня, здоровья, инвентаря, времени матча и доступного состояния карты подскажи ближайший безопасный приоритет фарма/перемещения на следующие 2 минуты. Не выдумывай позиции врагов и обзор.",
+  fight:"Оцени, стоит ли сейчас вступать в драку или отойти. Учитывай мои показатели, предметы, способности и доступную информацию о командах. Если не хватает сведений о союзниках/врагах или кулдаунах, скажи это.",
+  push:"Подскажи, стоит ли сейчас атаковать башню/бараки или сначала подготовить волну и обзор. Используй только реально переданные сведения о состоянии строений и карте.",
+  roshan:"Оцени, есть ли основания начинать Рошана сейчас. Учитывай время, состав/готовность команды и доступное состояние карты. Если GSI не передаёт здоровье Рошана, позиции врагов или готовность союзников — не делай вид, что знаешь это.",
+  defend:"Оцени угрозу базе по доступному состоянию строений, счёту и игровому времени. Дай один ближайший приоритет защиты и не выдумывай передвижения противника.",
+  now:"Выбери одно самое полезное действие прямо сейчас. Не перечисляй общие советы. Назови действие и короткую причину."
+};
 function refreshQuickLiveContext(){
   const el=$("quickLiveContext");
-  if(!latestMatch?.state){el.innerHTML='<span class="context-dot"></span><span>Данные матча не подключены — можно указать драфт вручную.</span>';return;}
-  const a=latestMatch.analysis||{},s=latestMatch.state||{};
-  const inventory=Object.values(s.items||{}).map(i=>i?.name).filter(Boolean).join(", ");
-  el.innerHTML='<span class="context-dot online"></span><span>GSI подключён · '+escapeHTML(a.hero||"Герой")+' · '+Number(a.minutes||0)+' мин. · '+Number(a.kills||0)+'/'+Number(a.deaths||0)+'/'+Number(a.assists||0)+(inventory?' · Предметы: '+escapeHTML(inventory):"")+'</span>';
+  if(!latestMatch?.state){
+    el.innerHTML='<span class="context-dot"></span><span>Игра пока не передаёт данные. Запусти Dota 2 и дождись подключения GSI.</span>';
+    document.querySelectorAll("[data-quick-action]").forEach(b=>b.disabled=true);
+    return;
+  }
+  const s=latestMatch.state,a=latestMatch.analysis||{},p=s.player||{},h=s.hero||{},m=s.map||{};
+  const name=a.hero||h.name||"Герой не выбран";
+  const time=Number(m.game_time||0),clock=Math.floor(Math.abs(time)/60)+":"+String(Math.abs(time)%60).padStart(2,"0");
+  const itemsNow=Object.values(s.items||{}).map(i=>i?.name).filter(Boolean);
+  const stats=[name,"ур. "+(h.level||"—"),"K/D/A "+[p.kills||0,p.deaths||0,p.assists||0].join("/"),"⏱ "+clock];
+  if(p.net_worth!==undefined)stats.push("NW "+Number(p.net_worth).toLocaleString("ru-RU"));
+  el.innerHTML='<span class="context-dot online"></span><span><b>МАТЧ ПОДКЛЮЧЁН</b><br>'+stats.map(escapeHTML).join(" · ")+(itemsNow.length?"<br>Предметы: "+itemsNow.map(escapeHTML).join(", "):"")+'</span>';
+  document.querySelectorAll("[data-quick-action]").forEach(b=>b.disabled=false);
 }
-function getQuickMatchContext(){
-  if(!latestMatch)return "Активные данные GSI не получены.";
-  const s=latestMatch.state||{},a=latestMatch.analysis||{};
-  const p=s.player||{},h=s.hero||{},m=s.map||{};
-  const abilities=Object.values(s.abilities||{}).map(x=>({name:x.name,level:x.level,cooldown:x.cooldown})).filter(x=>x.name);
-  const inventory=Object.values(s.items||{}).map(x=>({name:x.name,can_cast:x.can_cast,charges:x.count,cooldown:x.cooldown})).filter(x=>x.name);
-  return JSON.stringify({hero:a.hero,level:h.level,kills:p.kills,deaths:p.deaths,assists:p.assists,gold:p.gold,gameTime:m.game_time,phase:a.phase,draft:s.draft||null,abilities,items:inventory,localAnalysis:a.action},null,2);
+function buildQuickMatchSnapshot(){
+  if(!latestMatch?.state)return null;
+  const s=latestMatch.state,p=s.player||{},h=s.hero||{},m=s.map||{},a=latestMatch.analysis||{};
+  const take=(obj,keys)=>Object.fromEntries(keys.filter(k=>obj[k]!==undefined&&obj[k]!==null).map(k=>[k,obj[k]]));
+  const abilities=Object.entries(s.abilities||{}).map(([slot,v])=>({slot,...take(v,["name","level","can_cast","cooldown","passive"])}));
+  const inventory=Object.entries(s.items||{}).map(([slot,v])=>({slot,...take(v,["name","can_cast","cooldown","count"])})).filter(x=>x.name);
+  const teamData=s.team_data||{};
+  const teams=Object.fromEntries(Object.entries(teamData).map(([k,v])=>[k,{
+    team_name:v.team_name,
+    team_id:v.team_id,
+    players:Object.values(v.players||{}).map(x=>take(x,["name","hero","kills","deaths","assists","alive","respawn_seconds"]))
+  }]));
+  return {
+    player:take(p,["steamid","name","activity","team","kills","deaths","assists","last_hits","denies","gold","gold_reliable","gold_unreliable","net_worth"]),
+    hero:take(h,["name","level","alive","health","max_health","mana","max_mana","respawn_seconds","buyback_cost","buyback_cooldown"]),
+    map:take(m,["game_state","game_mode","game_time","clock_time","daytime","nightstalker_night","radiant_score","dire_score","radiant_tower_state","dire_tower_state","radiant_barracks_state","dire_barracks_state","roshan_state"]),
+    abilities,items:inventory,teams,
+    draft:s.draft||null,
+    buildings:s.buildings||null,
+    localAnalysis:take(a,["phase","action","confidence"])
+  };
 }
-async function runQuickHelp(){
+async function runQuickHelp(action){
   if(quickHelpBusy)return;
-  const allies=$("quickAllies").value.trim(),enemies=$("quickEnemies").value.trim();
-  if(!allies&&!enemies&&!latestMatch){showToast("Укажи хотя бы одного героя или подключи матч Dota 2.");return;}
-  const focus=$("quickFocus").value,position=$("quickPosition").value;
-  const prompt=[
-    "Проведи быстрый, конкретный анализ Dota 2. Отвечай на русском языке.",
-    "Позиция игрока: "+position,
-    "Союзные герои: "+(allies||"не указаны"),
-    "Герои противника: "+(enemies||"не указаны"),
-    "Запрос: "+focus,
-    "Текущие данные GSI (если доступны): "+getQuickMatchContext(),
-    "Каталог героев в приложении ("+heroes.length+"): "+heroes.map(h=>h.name).join(", ")+". Используй только реальные имена героев Dota 2.",
-    "Каталог предметов в приложении ("+items.length+"): "+items.map(i=>i.name).join(", ")+". Предлагай существующие предметы и учитывай уже купленные.",
-    "Сформируй ответ по разделам: 1) лучший пик/контрпики (если пик ещё выбирается — 2-3 варианта и почему; если герой уже выбран — не советуй сменить его), 2) следующий предмет и дальнейшая сборка с порядком, 3) прокачка способностей только если есть данные или уверенное основание, 4) что делать следующие 2-4 минуты: фарм, линии, перемещения, 5) когда драться/атаковать или отступать, 6) условия для Рошана и других объектов, 7) главная опасность и короткий план.",
-    "Не предлагай одну и ту же универсальную сборку всем героям. Учитывай роли, синергию, контрпики, темп, текущие предметы и стадию матча. Если данных мало, явно напиши что неизвестно и не выдавай догадки за факты. Не управляй игрой автоматически."
-  ].join("\n\n");
+  const snapshot=buildQuickMatchSnapshot();
+  if(!snapshot){showToast("Сначала запусти Dota 2 — пока нет данных матча.");return;}
   quickHelpBusy=true;
-  const button=$("runQuickHelp");button.disabled=true;button.textContent="Анализирую драфт и матч…";
-  $("quickResultStatus").textContent="AI АНАЛИЗИРУЕТ";
-  $("quickResults").innerHTML='<div class="quick-loading"><span class="loading-orbit"></span><b>Анализирую составы и игровую ситуацию</b><p>Сопоставляю роли, предметы, тайминги и цели команды…</p></div>';
+  document.querySelectorAll("[data-quick-action]").forEach(b=>b.disabled=true);
+  const button=document.querySelector('[data-quick-action="'+action+'"]');
+  if(button)button.classList.add("analysing");
+  $("quickResultStatus").textContent="АНАЛИЗ";
+  $("quickResults").innerHTML='<div class="quick-loading"><span class="loading-orbit"></span><b>'+escapeHTML(quickActionNames[action]||"Анализирую матч")+'…</b><p>Считываю последние показатели игры и подбираю следующий шаг.</p></div>';
+  const prompt=[
+    "Ты игровой AI-коуч Dota 2. Ответь на русском ОЧЕНЬ КРАТКО: максимум 1-2 предложения, желательно до 35 слов.",
+    "Тема запроса: "+(quickActionNames[action]||"Общий совет"),
+    "Что требуется: "+(quickActionGoals[action]||quickActionGoals.now),
+    "Последний снимок GSI из игры (JSON): "+JSON.stringify(snapshot),
+    "Правила: опирайся только на переданные показатели. Не выдумывай пики, позиции противников, вижен, кулдауны, здоровье Рошана, готовность союзников или состояние объектов, если данных нет. Стандартный GSI может не передавать полный драфт обеих команд — в таком случае честно укажи ограничение. Если конкретное действие нельзя уверенно рекомендовать, скажи, какой один факт нужно проверить. Не пиши длинный разбор, заголовки, вступление и список из многих пунктов. Не управляй игрой автоматически."
+  ].join("\n\n");
   try{
     const result=await window.dotaAI.quickHelp(prompt);
-    $("quickResultStatus").textContent="АНАЛИЗ ГОТОВ";
-    $("quickResults").innerHTML='<div class="quick-result-content">'+formatText(result.reply)+'</div><div class="quick-result-foot"><span>Модель: '+escapeHTML(result.model||settings.aiModel||"AI")+'</span><button class="copy-answer" id="copyQuickResult">▢ Копировать рекомендации</button></div>';
-    $("copyQuickResult").addEventListener("click",()=>navigator.clipboard.writeText(result.reply).then(()=>showToast("Рекомендации скопированы")).catch(()=>showToast("Не удалось скопировать")));
+    $("quickResultStatus").textContent="ГОТОВО";
+    $("quickResults").innerHTML='<div class="quick-result-content"><span class="quick-answer-topic">'+escapeHTML(quickActionNames[action]||"Совет AI")+'</span><p>'+formatText(result.reply)+'</p></div><div class="quick-result-foot"><span>'+escapeHTML(result.model||settings.aiModel||"AI")+' · данные матча</span><button class="copy-answer" id="copyQuickResult">Копировать</button></div>';
+    $("copyQuickResult").addEventListener("click",()=>navigator.clipboard.writeText(result.reply).then(()=>showToast("Совет скопирован")).catch(()=>showToast("Не удалось скопировать")));
   }catch(error){
     $("quickResultStatus").textContent="ОШИБКА";
-    $("quickResults").innerHTML='<div class="quick-error"><b>Не удалось получить анализ</b><p>'+escapeHTML(error.message||"Проверь настройки AI API.")+'</p><button class="btn-secondary" id="retryQuickHelp">Повторить</button></div>';
-    $("retryQuickHelp").addEventListener("click",runQuickHelp);
-  }finally{quickHelpBusy=false;button.disabled=false;button.textContent="⚡ Проанализировать ситуацию";}
+    $("quickResults").innerHTML='<div class="quick-error"><b>Не удалось получить совет</b><p>'+escapeHTML(error.message||"Проверь подключение AI API.")+'</p><button class="btn-secondary" id="retryQuickHelp">Повторить</button></div>';
+    $("retryQuickHelp").addEventListener("click",()=>runQuickHelp(action));
+  }finally{
+    quickHelpBusy=false;
+    document.querySelectorAll("[data-quick-action]").forEach(b=>b.disabled=!latestMatch?.state);
+    if(button)button.classList.remove("analysing");
+  }
 }
-$("runQuickHelp").addEventListener("click",runQuickHelp);
+document.querySelectorAll("[data-quick-action]").forEach(b=>b.addEventListener("click",()=>runQuickHelp(b.dataset.quickAction)));
 
 function loadHistory(){try{chatHistory=JSON.parse(localStorage.getItem("dotaAI.chatHistory")||"[]");}catch{chatHistory=[];}}
 function persistHistory(){localStorage.setItem("dotaAI.chatHistory",JSON.stringify(chatHistory.slice(0,30)));$("metricSessions").textContent=chatHistory.length;}
@@ -201,5 +240,5 @@ $("opacity").addEventListener("input",()=>{$("opacityValue").textContent=$("opac
 $("setupDota").addEventListener("click",async()=>{const r=await window.dotaAI.setupDota();showToast(r.message);});
 $("clearChatData").addEventListener("click",()=>{if(!confirm("Удалить сохранённую историю диалогов?"))return;chatHistory=[];persistHistory();renderHistory();showToast("История удалена");});
 $("modelQuick").addEventListener("change",()=>{$("apiModel").value=$("modelQuick").value==="custom"?$("apiModel").value:$("modelQuick").value;saveSettings();});
-async function init(){loadHistory();loadMatchArchive();renderPopular();renderHeroes();renderItems();renderHistory();loadCompleteDotaCatalog();$("metricSessions").textContent=chatHistory.length;try{settings=await window.dotaAI.getSettings();$("version").textContent=settings.version||"0.4.0";$("apiBaseUrl").value=settings.apiBaseUrl||"https://api.openai.com/v1";$("apiModel").value=settings.aiModel||"gpt-4o-mini";$("startup").checked=Boolean(settings.launchAtLogin);$("showLaunch").checked=Boolean(settings.showOnLaunch);$("alwaysOnTop").checked=settings.alwaysOnTop!==false;$("notifications").checked=Boolean(settings.notifications);$("opacity").value=settings.opacity||96;$("opacityValue").textContent=$("opacity").value+"%";$("language").value=settings.language||"ru";$("modelQuick").value=["gpt-4o-mini","gpt-4.1-mini"].includes(settings.aiModel)?settings.aiModel:"custom";if(settings.apiKeyConfigured){$("sidebarStatus").textContent="AI настроен";$("sidebarSub").textContent="API configured";$("metricAI").textContent="Подключён";$("metricAIHint").textContent="Готов к запросам";$("composerStatus").textContent="AI API готов";$("chatModelLabel").textContent=settings.aiModel;}const status=await window.dotaAI.getStatus();$("settingsAppStatus").textContent=status.dotaFound?"Dota 2 обнаружена":"Ожидание Dota 2";latestMatch=await window.dotaAI.getLatestMatch();if(latestMatch)renderMatch(latestMatch);}catch(e){showToast("Не удалось загрузить настройки");}}
+async function init(){loadHistory();loadMatchArchive();renderPopular();renderHeroes();renderItems();renderHistory();loadCompleteDotaCatalog();$("metricSessions").textContent=chatHistory.length;try{settings=await window.dotaAI.getSettings();$("version").textContent=settings.version||"0.4.0";$("apiBaseUrl").value=settings.apiBaseUrl||"https://api.openai.com/v1";$("apiModel").value=settings.aiModel||"gpt-4o-mini";$("startup").checked=Boolean(settings.launchAtLogin);$("showLaunch").checked=Boolean(settings.showOnLaunch);$("alwaysOnTop").checked=settings.alwaysOnTop!==false;$("notifications").checked=Boolean(settings.notifications);$("opacity").value=settings.opacity||96;$("opacityValue").textContent=$("opacity").value+"%";$("language").value=settings.language||"ru";$("modelQuick").value=["gpt-4o-mini","gpt-4.1-mini"].includes(settings.aiModel)?settings.aiModel:"custom";if(settings.apiKeyConfigured){$("sidebarStatus").textContent="AI настроен";$("sidebarSub").textContent="API configured";$("metricAI").textContent="Подключён";$("metricAIHint").textContent="Готов к запросам";$("composerStatus").textContent="AI API готов";$("chatModelLabel").textContent=settings.aiModel;}const status=await window.dotaAI.getStatus();$("settingsAppStatus").textContent=status.dotaFound?"Dota 2 обнаружена":"Ожидание Dota 2";latestMatch=await window.dotaAI.getLatestMatch();if(latestMatch){renderMatch(latestMatch);refreshQuickLiveContext();}else refreshQuickLiveContext();}catch(e){showToast("Не удалось загрузить настройки");}}
 init();
