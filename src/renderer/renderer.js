@@ -69,9 +69,13 @@ function formatAttributes(list){
 }
 async function loadCompleteDotaCatalog(){
   const cacheKey="dotaAI.catalog.v2";
+  let staleCatalog=null;
   try{
     const cached=JSON.parse(localStorage.getItem(cacheKey)||"null");
-    if(cached?.heroes?.length>100&&cached?.items?.length>100&&cached?.schema===2){applyCompleteCatalog(cached);return;}
+    if(cached?.heroes?.length>100&&cached?.items?.length>100&&cached?.schema===2){
+      if(Date.now()-Number(cached.updatedAt||0)<12*60*60*1000){applyCompleteCatalog(cached);return;}
+      staleCatalog=cached;applyCompleteCatalog(cached);
+    }
   }catch{}
   try{
     const urls=[
@@ -128,7 +132,7 @@ async function loadCompleteDotaCatalog(){
   }catch(error){
     $("heroCatalogCount").textContent=heroes.length;
     $("itemCatalogCount").textContent=items.length;
-    showToast("Не удалось обновить полный справочник. Проверь интернет и перезапусти каталог.");
+    showToast(staleCatalog?"Показана сохранённая база. Не удалось обновить данные.":"Не удалось загрузить справочник. Проверь интернет и попробуй снова.");
     console.error("Dota catalog:",error);
   }
 }
