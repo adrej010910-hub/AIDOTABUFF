@@ -15,6 +15,7 @@ let gsiServer;
 let latestState = null;
 let settings;
 let miniMode = false;
+let bubbleMode = false;
 
 app.setAppUserModelId(APP_ID);
 const gotLock = app.requestSingleInstanceLock();
@@ -79,17 +80,25 @@ function showOverlay() {
   mainWindow.focus();
 }
 
-function setMiniMode(enabled) {
+function setMiniMode(mode) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   const bounds = mainWindow.getBounds();
-  const nextWidth = enabled ? 360 : WINDOW_WIDTH;
-  const nextHeight = enabled ? 88 : WINDOW_HEIGHT;
-  mainWindow.setMinimumSize(enabled ? 300 : 760, enabled ? 74 : 600);
-  mainWindow.setMaximumSize(enabled ? 700 : 10000, enabled ? 160 : 10000);
+  const target = mode === "bubble" ? "bubble" : mode ? "compact" : "full";
+  const nextWidth = target === "bubble" ? 76 : target === "compact" ? 360 : WINDOW_WIDTH;
+  const nextHeight = target === "bubble" ? 76 : target === "compact" ? 88 : WINDOW_HEIGHT;
+  mainWindow.setMinimumSize(target === "full" ? 760 : nextWidth, target === "full" ? 600 : nextHeight);
+  mainWindow.setMaximumSize(target === "full" ? 10000 : nextWidth, target === "full" ? 10000 : nextHeight);
   mainWindow.setSize(nextWidth, nextHeight);
-  mainWindow.setPosition(bounds.x + bounds.width - nextWidth, bounds.y);
-  miniMode = enabled;
-  send("window:mini-state", miniMode);
+  // Keep the window near its previous position and clamp it to the visible work area.
+  const { screen } = require("electron");
+  const display = screen.getDisplayMatching(bounds);
+  const area = display.workArea;
+  const x = Math.max(area.x, Math.min(bounds.x + bounds.width - nextWidth, area.x + area.width - nextWidth));
+  const y = Math.max(area.y, Math.min(bounds.y, area.y + area.height - nextHeight));
+  mainWindow.setPosition(x, y);
+  miniMode = target !== "full";
+  bubbleMode = target === "bubble";
+  send("window:mini-state", { mini: miniMode, bubble: bubbleMode });
 }
 
 function createTray() {
@@ -235,4 +244,4 @@ ipcMain.handle("dota:setup", async (_event, folder) => {
 ipcMain.handle("shell:open-path", (_event, target) => shell.openPath(target));
 ipcMain.on("overlay:hide", () => mainWindow?.hide());
 ipcMain.on("overlay:show", showOverlay);
-ipcMain.on("window:set-mini", (_event, enabled) => setMiniMode(Boolean(enabled)));
+ipcMain.on("window:set-mini", (_event, mode) => setMiniMode(mode));
