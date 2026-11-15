@@ -18,6 +18,36 @@ jobs:
       - name: Get source code
         uses: actions/checkout@v4
 
+      - name: Create Dota 2 application icon from Steam artwork
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path build | Out-Null
+          $source = Join-Path $env:TEMP "dota2-icon-source.jpg"
+          $iconUrl = "https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps/570/48eb825bb93787945065b460bdc109ebf.jpg"
+          try {
+            Invoke-WebRequest -Uri $iconUrl -OutFile $source
+          } catch {
+            Invoke-WebRequest -Uri "https://cdn.akamai.steamstatic.com/steam/apps/570/header.jpg" -OutFile $source
+          }
+          Add-Type -AssemblyName System.Drawing
+          $image = [System.Drawing.Image]::FromFile($source)
+          $side = [Math]::Min($image.Width, $image.Height)
+          $left = [int](($image.Width - $side) / 2)
+          $top = [int](($image.Height - $side) / 2)
+          $bitmap = New-Object System.Drawing.Bitmap 256, 256
+          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+          $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+          $graphics.DrawImage($image, (New-Object System.Drawing.Rectangle 0, 0, 256, 256), (New-Object System.Drawing.Rectangle $left, $top, $side, $side), [System.Drawing.GraphicsUnit]::Pixel)
+          $handle = $bitmap.GetHicon()
+          $icon = [System.Drawing.Icon]::FromHandle($handle)
+          $stream = [System.IO.File]::Create("build/dota2.ico")
+          $icon.Save($stream)
+          $stream.Close()
+          $icon.Dispose()
+          $graphics.Dispose()
+          $bitmap.Dispose()
+          $image.Dispose()
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
