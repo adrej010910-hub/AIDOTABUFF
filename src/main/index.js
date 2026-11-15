@@ -168,7 +168,7 @@ ipcMain.handle("screen:capture", async () => {
   const sources = await desktopCapturer.getSources({ types: ["screen"], thumbnailSize: { width: display.size.width, height: display.size.height } });
   const source = sources.find(item => item.display_id === String(display.id)) || sources[0];
   if (!source) throw new Error("Экран не найден");
-  const result = await dialog.showSaveDialog(mainWindow || overlayWindow, { defaultPath: "DOTA-AI-screenshot.png", filters: [{ name: "PNG image", extensions: ["png"] }] });
+  const result = await dialog.showSaveDialog((overlayWindow && overlayWindow.isVisible()) ? overlayWindow : mainWindow, { defaultPath: "DOTA-AI-screenshot.png", filters: [{ name: "PNG image", extensions: ["png"] }] });
   if (result.canceled || !result.filePath) return { canceled: true };
   require("node:fs").writeFileSync(result.filePath, source.thumbnail.toPNG());
   return { canceled: false, filePath: result.filePath };
