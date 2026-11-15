@@ -44,7 +44,7 @@ $("sessionButton").addEventListener("click",async()=>{
   if(active){await window.dotaAI.endSession();setSession(false,"Игровая сессия завершена.");}
   else{const result=await window.dotaAI.startSession();setSession(true,result.message);}
 });
-$("showOverlayButton").addEventListener("click",()=>window.dotaAI.showOverlay());
+$("showOverlayButton").addEventListener("click",async()=>{const active=(await window.dotaAI.getSession()).active;if(active)window.dotaAI.showOverlay();else{const result=await window.dotaAI.startSession();setSession(true,result.message);}});
 $("retrySetup").addEventListener("click",async()=>{
   $("setupText").textContent="Проверяем установку Dota 2 и настраиваем подключение…";
   const result=await window.dotaAI.setupDota(); $("setupText").textContent=result.message;
