@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self';"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DOTA AI Overlay</title><link rel="stylesheet" href="style.css"></head>
+<body><section class="overlay" id="overlay">
+<header class="dragbar"><div class="brand-mark">D</div><div class="brand-copy"><b>DOTA <span>AI</span></b><small>LIVE MATCH ASSISTANT</small></div><div class="live"><i id="liveDot"></i><span id="liveLabel">WAITING</span></div><button class="icon-button no-drag" id="collapse" title="Свернуть">⌃</button><button class="icon-button no-drag" id="hide" title="Скрыть">×</button></header>
+<div class="content" id="content">
+<div class="hero-line"><div><small>ТЕКУЩИЙ ГЕРОЙ</small><h1 id="hero">Ожидание игры</h1><p id="meta">Запусти Dota 2</p></div><div class="level"><small>LVL</small><b id="level">—</b></div></div>
+<div class="stats"><div><small>K</small><b id="kills">—</b></div><div><small>D</small><b id="deaths">—</b></div><div><small>A</small><b id="assists">—</b></div><div><small>GOLD</small><b id="gold">—</b></div></div>
+<section class="advice"><div class="advice-head"><span>✦ AI TACTICAL TIP</span><span id="priority">LOCAL</span></div><h2 id="action">Ожидаем данные матча</h2><p id="detail">После подключения Dota 2 здесь появится краткая рекомендация.</p><small id="reason">Советы основаны на доступных данных.</small></section>
+<div class="bottom-row"><span id="phase">СЕССИЯ АКТИВНА</span><button id="endSession">ЗАВЕРШИТЬ СЕССИЮ</button></div>
+</div></section><script src="overlay.js"></script></body></html>
