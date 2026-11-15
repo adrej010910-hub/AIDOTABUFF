@@ -2,90 +2,129 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https://cdn.akamai.steamstatic.com https://shared.akamai.steamstatic.com; style-src 'self' 'unsafe-inline'; script-src 'self';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https://cdn.akamai.steamstatic.com https://shared.akamai.steamstatic.com https://cdn.cloudflare.steamstatic.com; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https: http://127.0.0.1:3000;">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>DOTA AI</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="window">
-  <div id="miniPanel" class="mini-panel hidden">
-    <div class="mini-brand"><span class="mini-mark">Ⅱ</span><span><b>DOTA <em>AI</em></b><small id="miniStatus">ОЖИДАНИЕ</small></span></div>
-    <button id="expandMode" class="mini-action" title="Развернуть окно" aria-label="Развернуть">↗</button>
-    <button id="miniHide" class="mini-action mini-close" title="Скрыть" aria-label="Скрыть">×</button>
-  </div>
-  <header class="topbar">
-    <div class="brand">
-      <div class="brand-mark"><span>Ⅱ</span></div>
-      <div><b>DOTA <em>AI</em></b><small>MATCH COMPANION</small></div>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-mark">D</div><div><b>DOTA <em>AI</em></b><small>INTELLIGENCE HUB</small></div></div>
+    <div class="workspace-label">WORKSPACE</div>
+    <nav class="side-nav">
+      <button class="nav-item active" data-page="dashboard"><span class="nav-icon">⌂</span>Главная</button>
+      <button class="nav-item" data-page="assistant"><span class="nav-icon">✳</span>AI Ассистент <span class="nav-badge">AI</span></button>
+      <button class="nav-item" data-page="heroes"><span class="nav-icon">♟</span>Герои</button>
+      <button class="nav-item" data-page="items"><span class="nav-icon">◇</span>Предметы</button>
+      <button class="nav-item" data-page="strategies"><span class="nav-icon">⌁</span>Стратегии</button>
+      <button class="nav-item" data-page="matches"><span class="nav-icon">◷</span>История матчей</button>
+      <div class="workspace-label nav-spacer">LIBRARY</div>
+      <button class="nav-item" data-page="knowledge"><span class="nav-icon">▤</span>База знаний</button>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="sidebar-status"><span class="status-orb"></span><div><b id="sidebarStatus">AI готов</b><small id="sidebarSub">Локальный режим</small></div></div>
+      <button class="nav-item" data-page="settings"><span class="nav-icon">⚙</span>Настройки</button>
+      <div class="profile-mini"><div class="avatar">DA</div><div><b>DOTA AI</b><small>Desktop companion</small></div><span class="profile-dots">•••</span></div>
     </div>
-    <div class="head-actions">
-      <span id="connection" class="pill"><i></i> ОЖИДАНИЕ</span>
-      <button id="compactMode" class="window-btn compact-btn" title="Компактный режим" aria-label="Компактный режим">▁</button>
-      <button id="minimize" class="window-btn" aria-label="Свернуть">—</button>
-      <button id="close" class="window-btn close" aria-label="Скрыть">×</button>
+  </aside>
+
+  <main class="main-area">
+    <header class="topbar">
+      <div class="breadcrumb"><span>Workspace</span><i>/</i><b id="pageCrumb">Главная</b></div>
+      <div class="top-actions">
+        <div class="connection-pill"><span class="status-orb" id="connectionOrb"></span><span id="connectionText">Ожидание игры</span></div>
+        <button class="icon-btn" id="newSessionTop" title="Новая сессия">＋</button>
+        <button class="icon-btn" id="compactMode" title="Компактное плавающее окно">↗</button>
+        <button class="window-btn" id="minimize" title="Свернуть">—</button>
+        <button class="window-btn close-btn" id="close" title="Скрыть">×</button>
+      </div>
+    </header>
+
+    <div class="content-scroll">
+      <section class="page active" id="dashboard">
+        <div class="welcome-row"><div><div class="eyebrow">SUNDAY, NOVEMBER 15 · YOUR PERSONAL DOTA COMPANION</div><h1>Добро пожаловать в <span>DOTA AI</span></h1><p>Разбирай матчи, изучай героев и принимай более взвешенные игровые решения.</p></div><div class="model-select-wrap"><label for="modelQuick">AI MODEL</label><select id="modelQuick"><option value="gpt-4o-mini">GPT-4o mini</option><option value="gpt-4.1-mini">GPT-4.1 mini</option><option value="custom">Custom endpoint</option></select></div></div>
+        <div class="hero-banner">
+          <div class="banner-art"></div><div class="banner-content"><div class="banner-tag"><span class="pulse"></span> YOUR MATCH INTELLIGENCE</div><h2>Играй с пониманием.<br><span>Действуй с преимуществом.</span></h2><p>Твой AI-компаньон для анализа драфта, предметов и игровых ситуаций.</p><button class="btn-primary" data-go="assistant">Открыть AI ассистента <span>→</span></button></div>
+          <div class="banner-orbit orbit-one"></div><div class="banner-orbit orbit-two"></div><div class="banner-emblem">D</div>
+        </div>
+        <div class="section-title-row"><div><div class="eyebrow">OVERVIEW</div><h2>Твоя игровая панель</h2></div><span class="subtle-label">LIVE WORKSPACE</span></div>
+        <div class="metric-grid">
+          <article class="metric-card"><div class="metric-top"><span>СОСТОЯНИЕ AI</span><span class="metric-icon violet">✳</span></div><b id="metricAI">Готов</b><small id="metricAIHint">Подключи API в настройках</small></article>
+          <article class="metric-card"><div class="metric-top"><span>ТЕКУЩИЙ МАТЧ</span><span class="metric-icon blue">◈</span></div><b id="metricMatch">Не в игре</b><small id="metricMatchHint">Ожидаем данные Dota 2 GSI</small></article>
+          <article class="metric-card"><div class="metric-top"><span>СЕССИИ AI</span><span class="metric-icon green">⌁</span></div><b id="metricSessions">0</b><small>Сохранено на этом устройстве</small></article>
+          <article class="metric-card"><div class="metric-top"><span>БИБЛИОТЕКА</span><span class="metric-icon amber">▤</span></div><b>126+</b><small>Герои, предметы и знания</small></article>
+        </div>
+        <div class="dashboard-grid">
+          <section class="panel assistant-preview"><div class="panel-heading"><div><div class="eyebrow">AI ASSISTANT</div><h3>С чего начнём?</h3></div><span class="live-label"><i></i> READY</span></div><p class="muted">Задай вопрос о драфте, билде или текущей игровой ситуации.</p><div class="prompt-grid"><button class="prompt-card" data-prompt="Как выбрать героя против вражеского пика?"><span>♟</span><b>Контрпик</b><small>Подбор героя</small></button><button class="prompt-card" data-prompt="Какой билд и порядок прокачки выбрать на Juggernaut?"><span>◇</span><b>Сборка</b><small>Предметы и навыки</small></button><button class="prompt-card" data-prompt="Как правильно играть на средней стадии матча?"><span>⌁</span><b>Макро-игра</b><small>План на матч</small></button><button class="prompt-card" data-prompt="Как играть против мобильного героя с сильным контролем?"><span>◎</span><b>Против героя</b><small>Тактика и позиция</small></button></div><button class="text-link" data-go="assistant">Перейти в AI чат <span>→</span></button></section>
+          <section class="panel match-preview"><div class="panel-heading"><div><div class="eyebrow">GAME STATE</div><h3>Матч сейчас</h3></div><span class="match-status" id="matchStatus">OFFLINE</span></div><div class="empty-match" id="matchEmpty"><div class="empty-symbol">◈</div><b>Нет активного матча</b><p>Когда Dota 2 отправит данные GSI, здесь появится игровая сводка.</p></div><div class="live-match hidden" id="liveMatch"><div class="live-hero"><div class="hero-avatar" id="liveHeroAvatar">?</div><div><b id="liveHeroName">Hero</b><small id="liveGameTime">00:00 · В игре</small></div></div><div class="live-stats"><span><b id="liveKDA">0 / 0 / 0</b><small>K / D / A</small></span><span><b id="liveGold">0</b><small>ЗОЛОТО</small></span><span><b id="liveLevel">1</b><small>УРОВЕНЬ</small></span></div><p id="liveAdvice">Ожидание анализа…</p></div><button class="text-link" data-go="matches">История матчей <span>→</span></button></section>
+        </div>
+        <div class="section-title-row compact-title"><div><div class="eyebrow">DISCOVER</div><h2>Популярные герои</h2></div><button class="text-link" data-go="heroes">Все герои →</button></div>
+        <div class="popular-heroes" id="popularHeroes"></div>
+      </section>
+
+      <section class="page" id="assistant">
+        <div class="page-heading"><div><div class="eyebrow">YOUR DOTA STRATEGIST</div><h1>AI Ассистент</h1><p>Обсуждай драфт, игровые решения и стратегии с AI.</p></div><button class="btn-secondary" id="newSession">＋ Новая сессия</button></div>
+        <div class="chat-layout">
+          <aside class="chat-history panel"><div class="panel-heading"><h3>История чатов</h3><button class="icon-btn small" id="clearHistory" title="Очистить историю">⌫</button></div><div id="historyList" class="history-list"><div class="history-empty">Здесь появятся твои диалоги.</div></div><div class="history-note">История хранится локально на устройстве.</div></aside>
+          <div class="chat-main panel"><div class="chat-topline"><div><b>DOTA AI <span class="ai-chip">ASSISTANT</span></b><small id="chatModelLabel">Модель не подключена</small></div><span class="live-label"><i></i> READY</span></div><div class="messages" id="messages"><div class="assistant-welcome"><div class="welcome-icon">✳</div><h2>Чем помочь в игре?</h2><p>Я помогу разобрать ситуацию, подобрать героя и составить план игры. Подключи AI API в настройках, чтобы начать диалог.</p><div class="suggestion-chips"><button data-prompt="Подбери героя против Phantom Assassin и Pudge">Контрпик по пику</button><button data-prompt="Составь стартовый билд на Lina для мида">Сборка на героя</button><button data-prompt="Как закрывать игру с преимуществом по карте?">План на игру</button></div></div></div><div class="chat-composer"><div class="composer-tools"><span>DOTА 2 KNOWLEDGE</span><span id="composerStatus">AI API не подключён</span></div><div class="composer-input"><textarea id="chatInput" rows="1" placeholder="Спроси о героях, предметах или стратегии..." maxlength="4000"></textarea><button class="attach-btn" id="attachContext" title="Добавить контекст матча">＋</button><button class="send-btn" id="sendMessage" title="Отправить">↑</button></div><div class="composer-foot">Enter — отправить · Shift + Enter — новая строка <span>AI может ошибаться — проверяй важные решения</span></div></div></div>
+        </div>
+      </section>
+
+      <section class="page" id="heroes">
+        <div class="page-heading"><div><div class="eyebrow">HERO DATABASE</div><h1>Герои</h1><p>Изучай роли, атрибуты и особенности персонажей.</p></div><div class="catalog-count">126 <span>ГЕРОЕВ В DOTA 2</span></div></div>
+        <div class="catalog-toolbar"><div class="search-box"><span>⌕</span><input id="heroSearch" placeholder="Поиск героя..." autocomplete="off"></div><select id="heroAttribute"><option value="all">Все атрибуты</option><option value="Сила">Сила</option><option value="Ловкость">Ловкость</option><option value="Интеллект">Интеллект</option><option value="Универсальный">Универсальный</option></select><select id="heroRole"><option value="all">Все роли</option><option value="Керри">Керри</option><option value="Мидер">Мидер</option><option value="Оффлейнер">Оффлейнер</option><option value="Саппорт">Саппорт</option></select></div>
+        <div class="catalog-layout"><div class="hero-grid" id="heroGrid"></div><aside class="detail-panel panel" id="heroDetail"><div class="detail-empty"><span>♟</span><b>Выбери героя</b><p>Нажми на карточку, чтобы увидеть описание и рекомендации.</p></div></aside></div>
+      </section>
+
+      <section class="page" id="items">
+        <div class="page-heading"><div><div class="eyebrow">ITEM DATABASE</div><h1>Предметы</h1><p>Разбирай назначение предметов и их применение.</p></div><div class="catalog-count">ITEMS <span>ITEM GUIDE</span></div></div>
+        <div class="catalog-toolbar"><div class="search-box"><span>⌕</span><input id="itemSearch" placeholder="Поиск предмета..." autocomplete="off"></div><select id="itemCategory"><option value="all">Все категории</option><option value="Стартовые">Стартовые</option><option value="Основные">Основные</option><option value="Защитные">Защитные</option><option value="Ситуационные">Ситуационные</option></select></div>
+        <div class="item-grid" id="itemGrid"></div>
+      </section>
+
+      <section class="page" id="strategies">
+        <div class="page-heading"><div><div class="eyebrow">GAME PLAN</div><h1>Стратегии</h1><p>Практические ориентиры для разных стадий матча.</p></div></div>
+        <div class="strategy-grid">
+          <article class="strategy-card strategy-purple"><span class="strategy-number">01</span><div class="eyebrow">DRAFT PHASE</div><h3>Драфт и контрпики</h3><p>Оценивай роли, контроль, мобильность и способы начать командный бой.</p><ul><li>Сбалансируй физический и магический урон</li><li>Учитывай синергию союзников</li><li>Оставь гибкий выбор последнего пика</li></ul><button data-prompt="Помоги составить сбалансированный драфт Dota 2 на пять позиций" class="text-link">Обсудить с AI →</button></article>
+          <article class="strategy-card strategy-blue"><span class="strategy-number">02</span><div class="eyebrow">LANING STAGE</div><h3>Лайнинг</h3><p>Управляй равновесием крипов и оценивай возможности безопасного размена.</p><ul><li>Следи за ресурсами и кулдаунами</li><li>Используй пулл и отводы по ситуации</li><li>Не теряй опыт ради сомнительного размена</li></ul><button data-prompt="Составь план успешного лайнинга для моей позиции" class="text-link">Обсудить с AI →</button></article>
+          <article class="strategy-card strategy-green"><span class="strategy-number">03</span><div class="eyebrow">MID GAME</div><h3>Контроль карты</h3><p>Преобразуй выигранные столкновения в безопасные цели на карте.</p><ul><li>Играй вокруг сильных способностей</li><li>Ставь обзор перед объектами</li><li>Сверяй тайминги команды</li></ul><button data-prompt="Как организовать контроль карты в середине игры?" class="text-link">Обсудить с AI →</button></article>
+          <article class="strategy-card strategy-amber"><span class="strategy-number">04</span><div class="eyebrow">LATE GAME</div><h3>Поздняя стадия</h3><p>Снижай риск ошибок и заранее планируй действия вокруг важных ресурсов.</p><ul><li>Сохраняй выкуп при необходимости</li><li>Не начинай бой без ключевых союзников</li><li>Продумывай безопасный отход</li></ul><button data-prompt="Как принимать решения в поздней стадии Dota 2?" class="text-link">Обсудить с AI →</button></article>
+        </div>
+      </section>
+
+      <section class="page" id="matches">
+        <div class="page-heading"><div><div class="eyebrow">MATCH CENTER</div><h1>История матчей</h1><p>Сессии игрового анализа, полученные через локальную интеграцию.</p></div><button class="btn-secondary" id="refreshMatches">↻ Обновить</button></div>
+        <div class="panel match-history-panel"><div class="panel-heading"><h3>Последние игровые данные</h3><span class="subtle-label">GSI SNAPSHOTS</span></div><div id="matchHistoryList" class="match-history-list"><div class="empty-state">Пока нет сохранённых данных матчей. Запусти Dota 2 с включённой GSI-интеграцией.</div></div></div>
+        <p class="privacy-note">DOTA AI использует только данные, которые игра добровольно отправляет через Game State Integration. Защищённые данные игры не считываются.</p>
+      </section>
+
+      <section class="page" id="knowledge">
+        <div class="page-heading"><div><div class="eyebrow">KNOWLEDGE BASE</div><h1>База знаний</h1><p>Короткие справочные материалы по основам Dota 2.</p></div></div>
+        <div class="knowledge-grid">
+          <article class="knowledge-card"><span>⌖</span><div class="eyebrow">MAP CONTROL</div><h3>Обзор и контроль карты</h3><p>Обзор помогает оценивать безопасные маршруты, подготовку к объектам и потенциальные перемещения соперников.</p><button class="text-link" data-prompt="Объясни основы обзора и контроля карты в Dota 2">Спросить AI →</button></article>
+          <article class="knowledge-card"><span>◷</span><div class="eyebrow">TIMINGS</div><h3>Тайминги предметов</h3><p>Сила героя меняется по мере получения уровней и ключевых предметов. Планируй действия вокруг этих окон силы.</p><button class="text-link" data-prompt="Как планировать тайминги ключевых предметов?">Спросить AI →</button></article>
+          <article class="knowledge-card"><span>◇</span><div class="eyebrow">ITEMIZATION</div><h3>Ситуативные покупки</h3><p>Предмет стоит выбирать не только по привычному билду, но и по угрозам, составам команд и темпу игры.</p><button class="text-link" data-prompt="Как выбирать ситуативные предметы в Dota 2?">Спросить AI →</button></article>
+          <article class="knowledge-card"><span>♧</span><div class="eyebrow">TEAMPLAY</div><h3>Командные взаимодействия</h3><p>Согласованные способности, позиционирование и общая цель часто важнее индивидуальной погони за преимуществом.</p><button class="text-link" data-prompt="Расскажи о синергии способностей и командной игре">Спросить AI →</button></article>
+        </div>
+      </section>
+
+      <section class="page" id="settings">
+        <div class="page-heading"><div><div class="eyebrow">PREFERENCES</div><h1>Настройки</h1><p>Подключение модели, внешний вид и поведение приложения.</p></div><button class="btn-primary" id="saveSettings">Сохранить изменения</button></div>
+        <div class="settings-layout">
+          <div class="settings-main">
+            <section class="panel settings-section"><div class="settings-heading"><span class="settings-icon violet">✳</span><div><h3>AI провайдер</h3><p>Подключение совместимого API чата.</p></div></div><label class="field-label">API BASE URL</label><input class="text-field" id="apiBaseUrl" placeholder="https://api.openai.com/v1"><label class="field-label">API KEY</label><input class="text-field" id="apiKey" type="password" placeholder="Вставь свой API ключ"><small class="field-help">Ключ хранится в зашифрованном виде средствами Windows, если шифрование доступно. Не передавай его другим людям.</small><label class="field-label">МОДЕЛЬ</label><input class="text-field" id="apiModel" placeholder="gpt-4o-mini"><div class="field-actions"><button class="btn-secondary" id="testAI">Проверить подключение</button><span id="apiTestStatus" class="field-status">Не проверено</span></div></section>
+            <section class="panel settings-section"><div class="settings-heading"><span class="settings-icon blue">◈</span><div><h3>Окно и интерфейс</h3><p>Настрой внешний вид DOTA AI.</p></div></div><div class="setting-row"><div><b>Запуск вместе с Windows</b><small>Открывать приложение при входе в систему</small></div><input type="checkbox" id="startup"></div><div class="setting-row"><div><b>Показывать окно при запуске</b><small>Открывать главное окно автоматически</small></div><input type="checkbox" id="showLaunch"></div><div class="setting-row"><div><b>Плавающее окно поверх других</b><small>Использовать системный режим always-on-top</small></div><input type="checkbox" id="alwaysOnTop" checked></div><div class="setting-row"><div><b>Уведомления</b><small>Показывать системные уведомления о состоянии</small></div><input type="checkbox" id="notifications"></div><label class="field-label">ПРОЗРАЧНОСТЬ ПЛАВАЮЩЕГО ОКНА <span id="opacityValue">96%</span></label><input type="range" id="opacity" min="70" max="100" value="96" class="range-field"></section>
+            <section class="panel settings-section"><div class="settings-heading"><span class="settings-icon green">⌘</span><div><h3>Горячие клавиши</h3><p>Быстрый доступ к плавающему окну.</p></div></div><div class="shortcut-row"><span>Показать / скрыть окно</span><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Space</kbd></div><div class="setting-row"><div><b>Язык интерфейса</b><small>Язык текстов и подсказок</small></div><select id="language"><option value="ru">Русский</option><option value="en">English</option></select></div></section>
+          </div>
+          <aside class="settings-aside"><div class="panel settings-info"><div class="eyebrow">APP STATUS</div><div class="app-status-line"><span class="status-orb"></span><b id="settingsAppStatus">Приложение активно</b></div><p>Версия <b id="version">0.2.0</b></p><p>Режим анализа <b>GSI + AI API</b></p><p>Локальный порт <b>127.0.0.1:3000</b></p><button class="text-link" id="setupDota">Проверить интеграцию Dota 2 →</button></div><div class="panel settings-info"><div class="eyebrow">PRIVACY</div><h3>Твои данные под контролем</h3><p>История диалогов хранится локально. API-запросы отправляются выбранному тобой провайдеру.</p><button class="text-link" id="clearChatData">Очистить историю чатов</button></div></aside>
+        </div>
+      </section>
     </div>
-  </header>
-
-  <div class="game-banner">
-    <img src="https://cdn.akamai.steamstatic.com/steam/apps/570/header.jpg" alt="Dota 2" onerror="this.style.display='none'">
-    <div class="banner-shade"></div>
-    <div class="banner-caption"><span>GAME ASSISTANT</span><b>DOTA 2</b></div>
-    <div class="banner-version">EARLY ACCESS · v0.2.0</div>
-  </div>
-
-  <nav class="tabs">
-    <button class="nav active" data-page="match"><span>◈</span> Матч</button>
-    <button class="nav" data-page="settings"><span>⚙</span> Настройки</button>
-  </nav>
-
-  <main id="match" class="page">
-    <div class="section-heading"><div><small>ТЕКУЩАЯ СЕССИЯ</small><h1 id="hero">Ожидание Dota 2</h1><p id="meta">Запусти игру — приложение подключится автоматически</p></div><div class="level"><small>УРОВЕНЬ</small><b id="level">—</b></div></div>
-
-    <div class="stats">
-      <div><small>УБИЙСТВА</small><b id="kills">—</b><i>K</i></div>
-      <div><small>СМЕРТИ</small><b id="deaths">—</b><i>D</i></div>
-      <div><small>ПОМОЩЬ</small><b id="assists">—</b><i>A</i></div>
-      <div><small>ЗОЛОТО</small><b id="gold">—</b><i>G</i></div>
-    </div>
-
-    <section class="card recommendation">
-      <div class="card-head"><span class="live-dot"></span> РЕКОМЕНДАЦИЯ AI <span id="priority" class="priority">ОЖИДАНИЕ</span></div>
-      <h2 id="action">Пока нет данных матча</h2>
-      <p id="detail">DOTA AI анализирует доступные игровые показатели и будет показывать краткие подсказки.</p>
-      <div class="reason" id="reason">Ожидается подключение через GSI</div>
-    </section>
-
-    <section class="card analysis-card">
-      <div class="card-head">АНАЛИТИКА МАТЧА <span id="phase" class="phase">—</span></div>
-      <div class="row"><span>Подключение к игре</span><b id="data">Не подключено</b></div>
-      <div class="row"><span>Следующая покупка</span><b>В разработке</b></div>
-      <div class="row"><span>Оценка преимущества</span><b>В разработке</b></div>
-    </section>
-    <p class="footnote">Подсказки используют только данные, доступные через Game State Integration.</p>
+    <footer class="app-footer"><span><i class="status-orb"></i> DOTA AI DESKTOP</span><span id="footerStatus">Локальный режим · v0.3.0</span><span>BUILT FOR BETTER DECISIONS</span></footer>
   </main>
-
-  <main id="settings" class="page hidden">
-    <div class="section-heading"><div><small>ПЕРСОНАЛИЗАЦИЯ</small><h1>Настройки</h1><p>Управление приложением и подключением</p></div></div>
-    <section class="card settings-card">
-      <label class="setting"><span><b>Запуск вместе с Windows</b><small>Автоматически запускать DOTA AI при входе</small></span><input type="checkbox" id="startup" checked></label>
-      <label class="setting"><span><b>Показывать окно при запуске</b><small>Если выключено, приложение останется в трее</small></span><input type="checkbox" id="showLaunch"></label>
-      <label class="setting"><span><b>Голосовые подсказки</b><small>Подготовка к следующему этапу</small></span><input type="checkbox" id="voice"></label>
-    </section>
-    <section class="card">
-      <div class="card-head">ПОДКЛЮЧЕНИЕ К DOTA 2</div>
-      <p id="setupText">Проверка папки игры...</p>
-      <button id="retrySetup" class="primary">Найти и настроить Dota 2</button>
-      <p class="hint">Ctrl + Shift + Space — показать или скрыть оверлей.</p>
-    </section>
-    <section class="card">
-      <div class="card-head">О ПРИЛОЖЕНИИ</div>
-      <div class="row"><span>Версия</span><b id="version">0.2.0</b></div>
-      <div class="row"><span>Режим анализа</span><b>Локальные правила</b></div>
-    </section>
-  </main>
-  <footer><span><i class="footer-dot"></i> LOCAL ANALYSIS ENGINE</span><span> DOTA AI · 0.2.0</span></footer>
 </div>
+<div id="toast" class="toast" role="status"></div>
 <script src="renderer.js"></script>
 </body>
 </html>
