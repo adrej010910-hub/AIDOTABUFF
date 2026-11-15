@@ -14,6 +14,7 @@ let tray;
 let gsiServer;
 let latestState = null;
 let settings;
+let miniMode = false;
 
 app.setAppUserModelId(APP_ID);
 const gotLock = app.requestSingleInstanceLock();
@@ -24,9 +25,9 @@ function makeWindow() {
   mainWindow = new BrowserWindow({
     width: WINDOW_WIDTH,
     height: WINDOW_HEIGHT,
-    minWidth: WINDOW_WIDTH,
+    minWidth: 300,
     maxWidth: WINDOW_WIDTH,
-    minHeight: WINDOW_HEIGHT,
+    minHeight: 74,
     maxHeight: WINDOW_HEIGHT,
     useContentSize: true,
     show: false,
@@ -63,6 +64,20 @@ function showOverlay() {
   if (!mainWindow) makeWindow();
   mainWindow.show();
   mainWindow.focus();
+}
+
+function setMiniMode(enabled) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const bounds = mainWindow.getBounds();
+  const nextWidth = enabled ? 300 : WINDOW_WIDTH;
+  const nextHeight = enabled ? 74 : WINDOW_HEIGHT;
+  mainWindow.setMinimumSize(300, 74);
+  mainWindow.setMaximumSize(WINDOW_WIDTH, WINDOW_HEIGHT);
+  mainWindow.setSize(nextWidth, nextHeight);
+  // Keep the panel anchored to the same right edge when switching modes.
+  mainWindow.setPosition(bounds.x + bounds.width - nextWidth, bounds.y);
+  miniMode = enabled;
+  send("window:mini-state", miniMode);
 }
 
 function createTray() {
@@ -140,3 +155,4 @@ ipcMain.handle("dota:setup", async (_event, folder) => {
 ipcMain.handle("shell:open-path", (_event, target) => shell.openPath(target));
 ipcMain.on("overlay:hide", () => mainWindow?.hide());
 ipcMain.on("overlay:show", showOverlay);
+ipcMain.on("window:set-mini", (_event, enabled) => setMiniMode(Boolean(enabled)));
