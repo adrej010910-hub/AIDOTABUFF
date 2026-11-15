@@ -1,6 +1,6 @@
 {
   "name": "dota-ai",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "DOTA AI - Windows desktop companion and overlay",
   "main": "src/main/index.js",
   "author": "DOTA AI",
