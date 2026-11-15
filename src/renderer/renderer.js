@@ -46,47 +46,90 @@ let items = [
 const heroRoleNames = {Carry:"Керри",Mid:"Мидер",Offlane:"Оффлейнер",Support:"Саппорт",Durable:"Танк",Disabler:"Контроль",Initiator:"Инициатор",Nuker:"Магический урон",Escape:"Мобильность",Pusher:"Пуш",Jungler:"Лес"};
 const heroAttrNames = {str:"Сила",agi:"Ловкость",int:"Интеллект",all:"Универсальный"};
 function splitRoles(roles){return (roles||[]).map(r=>heroRoleNames[r]||r).slice(0,4);}
+function cleanGameText(value){
+  if(Array.isArray(value))return value.map(cleanGameText).filter(Boolean).join(" · ");
+  return String(value||"").replace(/<br\s*\/?>/gi,"\n").replace(/<\/?[^>]+>/g," ").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/\s+/g," ").replace(/\s*\n\s*/g,"\n").trim();
+}
 function classifyItem(item,key){
-  const q=String(item.qual||"").toLowerCase(), c=String(item.type||"").toLowerCase();
-  if(q.includes("consumable")||/ward|dust|smoke|clarity|tango|salve|potion|cheese|gem|flask/.test(key))return "Расходуемые";
+  const q=String(item.qual||"").toLowerCase(), type=String(item.type||"").toLowerCase(), id=String(key||"").toLowerCase();
+  if(/neutral|tier_/.test(id)||q.includes("neutral"))return "Нейтральные";
+  if(q.includes("consumable")||/ward|dust|smoke|clarity|tango|salve|potion|cheese|gem|flask|bottle|faerie_fire/.test(id))return "Расходуемые";
+  if(/boots|blade|staff|orb|ring|gloves|cloak|belt|circlet|branches|slippers|mantle|gauntlets|recipe/.test(id)||q.includes("component")||q.includes("common")||q.includes("basic"))return "Стартовые";
   if(q.includes("artifact")||q.includes("secret_shop")||q.includes("rare"))return "Основные";
-  if(/neutral|tier_/.test(key)||q.includes("neutral"))return "Нейтральные";
-  if(q.includes("component")||q.includes("common")||q.includes("basic"))return "Стартовые";
   if(item.cost===0)return "Прочие";
+  if(/black_king_bar|pipe|crimson|lotus|hood|shiva|assault|heart|eternal_shroud|glimmer|force_staff|aeon_disk/.test(id))return "Защитные";
   return "Ситуационные";
 }
+function formatAttributes(list){
+  return (Array.isArray(list)?list:[]).map(a=>{
+    const key=cleanGameText(a?.key||a?.name||"");
+    const value=cleanGameText(a?.value||a?.value_string||"");
+    return key&&value?{key,value}:null;
+  }).filter(Boolean);
+}
 async function loadCompleteDotaCatalog(){
-  const cacheKey="dotaAI.catalog.v1";
+  const cacheKey="dotaAI.catalog.v2";
   try{
     const cached=JSON.parse(localStorage.getItem(cacheKey)||"null");
-    if(cached?.heroes?.length>100&&cached?.items?.length>100){applyCompleteCatalog(cached);return;}
+    if(cached?.heroes?.length>100&&cached?.items?.length>100&&cached?.schema===2){applyCompleteCatalog(cached);return;}
   }catch{}
   try{
-    const [heroRes,itemRes]=await Promise.all([
-      fetch("https://api.opendota.com/api/constants/heroes",{cache:"no-cache"}),
-      fetch("https://api.opendota.com/api/constants/items",{cache:"no-cache"})
-    ]);
-    if(!heroRes.ok||!itemRes.ok)throw new Error("Каталог временно недоступен");
-    const [heroData,itemData]=await Promise.all([heroRes.json(),itemRes.json()]);
-    const allHeroes=Object.values(heroData).map(h=>({
-      name:h.localized_name||h.name,ru:h.localized_name||h.name,slug:String(h.name||"").replace("npc_dota_hero_",""),
-      attr:heroAttrNames[h.primary_attr]||"Универсальный",roles:splitRoles(h.roles),difficulty:"Зависит от навыка",
-      color:"#7769a8",desc:(h.attack_type||"Герой")+" · "+(h.roles||[]).join(", ")+". Роль и сильные стороны зависят от состава команд и текущего патча.",
-      skills:[],items:[],tip:"Учитывай состав обеих команд, тайминги способностей и актуальные изменения патча."
-    })).sort((a,b)=>a.name.localeCompare(b.name));
-    const allItems=Object.entries(itemData).filter(([key,v])=>v&&v.dname).map(([key,v])=>({
-      name:v.dname,ru:v.dname,slug:key,cost:Number(v.cost||0),cat:classifyItem(v,key),
-      desc:String(v.desc||v.notes||"Предмет Dota 2. Проверь актуальные характеристики и эффект в игре."),
-      use:String(v.notes||v.lore||"Выбирай с учётом героя, вражеских угроз и текущей ситуации.")
-    })).sort((a,b)=>a.name.localeCompare(b.name));
+    const urls=[
+      "https://api.opendota.com/api/heroStats",
+      "https://api.opendota.com/api/constants/heroes",
+      "https://api.opendota.com/api/constants/items",
+      "https://api.opendota.com/api/constants/abilities",
+      "https://api.opendota.com/api/constants/hero_abilities"
+    ];
+    const responses=await Promise.all(urls.map(url=>fetch(url,{cache:"no-cache"})));
+    if(responses.slice(0,3).some(r=>!r.ok))throw new Error("Не удалось загрузить основные данные каталога");
+    const [statsData,heroData,itemData,abilityData,heroAbilityData]=await Promise.all(responses.map((r,i)=>r.ok?r.json():Promise.resolve(i===3||i===4?{}:null)));
+    const allHeroes=statsData.map(h=>{
+      const internal=String(h.name||"");
+      const constant=heroData[internal]||{};
+      const mapping=heroAbilityData[internal]||{};
+      const abilityNames=(mapping.abilities||[]).filter(n=>n&&!String(n).includes("generic_hidden"));
+      const abilities=abilityNames.map(key=>{
+        const a=abilityData[key]||{};
+        return {name:cleanGameText(a.dname||key.replace(/_/g," ")),description:cleanGameText(a.desc||a.notes||"Описание способности не предоставлено источником."),cooldown:cleanGameText(a.cd),mana:cleanGameText(a.mc),attributes:formatAttributes(a.attrib),key};
+      });
+      const talents=(mapping.talents||[]).map(t=>{
+        const a=abilityData[t.name]||{};
+        return {level:t.level,name:cleanGameText(a.dname||a.desc||t.name.replace(/_/g," ")),description:cleanGameText(a.desc||"")};
+      });
+      const facets=(mapping.facets||[]).filter(f=>f.title||f.description).map(f=>({name:cleanGameText(f.title||f.name),description:cleanGameText(f.description)}));
+      const roles=splitRoles(h.roles||constant.roles||[]);
+      const attr=heroAttrNames[h.primary_attr]||"Универсальный";
+      return {
+        id:h.id,name:h.localized_name||constant.localized_name||internal.replace("npc_dota_hero_",""),ru:h.localized_name||constant.localized_name||"",
+        slug:internal.replace("npc_dota_hero_",""),internal,attr,roles,difficulty:"Зависит от навыка",
+        attackType:h.attack_type||"Не указано",attackRange:Number(h.attack_range||0),moveSpeed:Number(h.move_speed||0),
+        baseStats:{strength:h.base_str,agility:h.base_agi,intelligence:h.base_int,health:h.base_health,mana:h.base_mana,armor:h.base_armor,attackMin:h.base_attack_min,attackMax:h.base_attack_max},
+        desc:cleanGameText(constant.bio||constant.hype||((h.attack_type||"Герой")+" · "+roles.join(", ")+". Изучай матчапы и подбирай стиль игры под состав команд.")),
+        skills:abilities.map(a=>a.name),abilities,talents,facets,
+        items:[],tip:"Сверяй сборку с актуальным матчапом и темпом игры. Способности и базовые характеристики загружены из игрового справочника.",
+        color:"#7769a8"
+      };
+    }).sort((a,b)=>a.name.localeCompare(b.name));
+    const allItems=Object.entries(itemData).filter(([key,v])=>v&&v.dname&&!v.hide).map(([key,v])=>{
+      const abilities=(v.abilities||[]).map(a=>({type:cleanGameText(a.type),description:cleanGameText(a.description||a.desc||""),behavior:cleanGameText(a.behavior)})).filter(a=>a.description||a.type);
+      return {
+        name:cleanGameText(v.dname),ru:cleanGameText(v.dname),slug:key,cost:Number(v.cost||0),cat:classifyItem(v,key),
+        desc:cleanGameText(v.desc||v.notes||"Описание не предоставлено источником."),
+        use:cleanGameText([...(Array.isArray(v.hint)?v.hint:[]),...(Array.isArray(v.notes)?v.notes:[v.notes])].filter(Boolean).join(" ")),
+        attributes:formatAttributes(v.attrib),components:Array.isArray(v.components)?v.components:[],
+        lore:cleanGameText(v.lore),abilities,qual:cleanGameText(v.qual),created:Boolean(v.created)
+      };
+    }).sort((a,b)=>a.name.localeCompare(b.name));
     if(allHeroes.length<100||allItems.length<100)throw new Error("Получен неполный каталог");
-    const payload={heroes:allHeroes,items:allItems,updatedAt:Date.now()};
+    const payload={schema:2,heroes:allHeroes,items:allItems,updatedAt:Date.now(),source:"OpenDota game constants"};
     localStorage.setItem(cacheKey,JSON.stringify(payload));
     applyCompleteCatalog(payload);
   }catch(error){
     $("heroCatalogCount").textContent=heroes.length;
     $("itemCatalogCount").textContent=items.length;
-    showToast("Полный каталог не загрузился. Пока доступны базовые данные.");
+    showToast("Не удалось обновить полный справочник. Проверь интернет и перезапусти каталог.");
+    console.error("Dota catalog:",error);
   }
 }
 function applyCompleteCatalog(data){
@@ -120,9 +163,30 @@ function renderMatch(data){const a=data.analysis;if(!a)return;archiveMatch(data,
 function renderPopular(){const el=$("popularHeroes");el.innerHTML=heroes.slice(0,6).map(h=>'<button class="popular-hero" data-hero="'+h.name+'"><span class="popular-avatar" style="--hero-color:'+h.color+'">'+h.name.slice(0,1)+'</span><span><b>'+h.name+'</b><small>'+h.roles.join(" · ")+'</small></span><i>→</i></button>').join("");el.querySelectorAll("[data-hero]").forEach(b=>b.addEventListener("click",()=>{navigate("heroes");selectHero(b.dataset.hero);}));}
 function heroSlug(name){const hero=heroes.find(h=>h.name===name);return hero?.slug||({ "Juggernaut":"juggernaut","Invoker":"invoker","Axe":"axe","Crystal Maiden":"crystal_maiden","Phantom Assassin":"phantom_assassin","Pudge":"pudge","Lina":"lina","Mars":"mars","Drow Ranger":"drow_ranger","Rubick":"rubick","Windranger":"windrunner","Tidehunter":"tidehunter" })[name]||name.toLowerCase().replaceAll(" ","_");}
 function renderHeroes(){const q=($("heroSearch").value||"").toLowerCase();const attr=$("heroAttribute").value;const role=$("heroRole").value;const list=heroes.filter(h=>(h.name.toLowerCase().includes(q)||h.ru.toLowerCase().includes(q))&&(attr==="all"||h.attr===attr)&&(role==="all"||h.roles.includes(role)));$("heroGrid").innerHTML=list.map(h=>'<button class="hero-card" data-hero="'+h.name+'"><span class="hero-art" style="--hero-color:'+h.color+';background-image:linear-gradient(180deg,#15182722,#14182799),url(https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/'+heroSlug(h.name)+'.png)"><b>'+h.name.slice(0,1)+'</b><small>'+h.attr.toUpperCase()+'</small></span><span class="hero-card-info"><b>'+h.name+'</b><small>'+h.ru+' · '+h.roles[0]+'</small></span></button>').join("")||'<div class="empty-state">Ничего не найдено. Измени параметры поиска.</div>';document.querySelectorAll("#heroGrid [data-hero]").forEach(b=>b.addEventListener("click",()=>selectHero(b.dataset.hero)));}
-function selectHero(name){const h=heroes.find(x=>x.name===name);if(!h)return;document.querySelectorAll(".hero-card").forEach(b=>b.classList.toggle("selected",b.dataset.hero===name));$("heroDetail").innerHTML='<div class="detail-hero-art" style="--hero-color:'+h.color+';background-image:linear-gradient(180deg,#15182722,#14182799),url(https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/'+heroSlug(h.name)+'.png)"><span>'+h.name.slice(0,1)+'</span><small>'+h.attr.toUpperCase()+'</small></div><div class="eyebrow">HERO PROFILE</div><h2>'+h.name+'</h2><p class="detail-sub">'+h.ru+' · '+h.roles.join(" / ")+'</p><p class="detail-description">'+h.desc+'</p><div class="detail-meta"><span>СЛОЖНОСТЬ</span><b>'+h.difficulty+'</b></div><h4>Ключевые способности</h4><div class="skill-tags">'+h.skills.map(s=>'<span>'+s+'</span>').join("")+'</div><h4>Пример предметов</h4><div class="skill-tags">'+h.items.map(s=>'<span>'+s+'</span>').join("")+'</div><div class="detail-tip"><b>AI TIP</b><p>'+h.tip+'</p></div><button class="btn-primary full" id="askHero">Спросить AI об этом герое →</button>';$("askHero").addEventListener("click",()=>{navigate("assistant");$("chatInput").value="Расскажи о "+h.name+": сильные стороны, слабости, предметы и план игры.";});}
+function selectHero(name){
+  const h=heroes.find(x=>x.name===name);if(!h)return;
+  document.querySelectorAll(".hero-card").forEach(b=>b.classList.toggle("selected",b.dataset.hero===name));
+  const statRows=Object.entries({Сила:h.baseStats?.strength,Ловкость:h.baseStats?.agility,Интеллект:h.baseStats?.intelligence,Здоровье:h.baseStats?.health,Мана:h.baseStats?.mana,Броня:h.baseStats?.armor,Урон:(h.baseStats?.attackMin!=null&&h.baseStats?.attackMax!=null)?h.baseStats.attackMin+"–"+h.baseStats.attackMax:undefined}).filter(([,v])=>v!==undefined&&v!==null).map(([k,v])=>'<span><small>'+escapeHTML(k)+'</small><b>'+escapeHTML(v)+'</b></span>').join("");
+  const abilityHtml=(h.abilities||[]).map(a=>'<article class="hero-ability"><b>'+escapeHTML(a.name)+'</b><p>'+escapeHTML(a.description||"Описание не предоставлено.")+'</p><small>'+[a.cooldown?"Перезарядка: "+a.cooldown+" сек.":"",a.mana?"Мана: "+a.mana:""].filter(Boolean).map(escapeHTML).join(" · ")+'</small></article>').join("");
+  const talentHtml=(h.talents||[]).map(t=>'<div class="hero-talent"><small>УРОВЕНЬ '+escapeHTML(t.level*5)+'</small><span>'+escapeHTML(t.name)+'</span></div>').join("");
+  const facetHtml=(h.facets||[]).map(f=>'<div class="hero-facet"><b>'+escapeHTML(f.name)+'</b><p>'+escapeHTML(f.description)+'</p></div>').join("");
+  $("heroDetail").innerHTML='<div class="detail-hero-art" style="--hero-color:'+h.color+';background-image:linear-gradient(180deg,#15182722,#14182799),url(https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/'+heroSlug(h.name)+'.png)"><span>'+escapeHTML(h.name.slice(0,1))+'</span><small>'+escapeHTML(h.attr.toUpperCase())+'</small></div><div class="eyebrow">ПОЛНЫЙ ПРОФИЛЬ ГЕРОЯ</div><h2>'+escapeHTML(h.name)+'</h2><p class="detail-sub">'+escapeHTML(h.ru||h.name)+' · '+escapeHTML(h.roles.join(" / "))+'</p><p class="detail-description">'+escapeHTML(h.desc)+'</p><div class="detail-meta"><span>АТАКА</span><b>'+escapeHTML(h.attackType||"—")+'</b><span>ДАЛЬНОСТЬ</span><b>'+escapeHTML(h.attackRange||"—")+'</b><span>СКОРОСТЬ</span><b>'+escapeHTML(h.moveSpeed||"—")+'</b></div>'+(statRows?'<h4>Базовые характеристики</h4><div class="hero-stat-grid">'+statRows+'</div>':"")+'<h4>Способности</h4><div class="hero-ability-list">'+(abilityHtml||'<p class="detail-description">Данные о способностях временно недоступны.</p>')+'</div>'+(talentHtml?'<h4>Таланты</h4><div class="hero-talent-list">'+talentHtml+'</div>':"")+(facetHtml?'<h4>Фасеты</h4><div class="hero-facet-list">'+facetHtml+'</div>':"")+'<div class="detail-tip"><b>СОВЕТ</b><p>'+escapeHTML(h.tip)+'</p></div><button class="btn-primary full" id="askHero">Спросить AI об этом герое →</button>';
+  $("askHero").addEventListener("click",()=>{navigate("assistant");$("chatInput").value="Расскажи о "+h.name+": способности, сильные и слабые стороны, таланты, фасеты и план игры.";});
+}
 function itemSlug(name){const item=items.find(i=>i.name===name);return item?.slug||({ "Blink Dagger":"blink","Black King Bar":"black_king_bar","Force Staff":"force_staff","Glimmer Cape":"glimmer_cape","Power Treads":"power_treads","Magic Wand":"magic_wand","Aghanim's Scepter":"ultimate_scepter","Manta Style":"manta","Pipe of Insight":"pipe","Force Boots":"force_boots","Observer Ward":"ward_observer","Dust of Appearance":"dust" })[name]||name.toLowerCase().replaceAll(" ","_");}
-function renderItems(){const q=($("itemSearch").value||"").toLowerCase();const cat=$("itemCategory").value;const list=items.filter(i=>(i.name.toLowerCase().includes(q)||i.ru.toLowerCase().includes(q))&&(cat==="all"||i.cat===cat));$("itemGrid").innerHTML=list.map(i=>'<article class="item-card"><div class="item-gem" style="background-image:linear-gradient(180deg,#10152622,#10152688),url(https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/items/'+itemSlug(i.name)+'.png)">'+i.name.slice(0,1)+'</div><div class="item-info"><div class="item-title"><b>'+i.name+'</b><span>'+i.cost.toLocaleString("ru-RU")+' <small>G</small></span></div><small class="item-ru">'+i.ru+' · '+i.cat+'</small><p>'+i.desc+'</p><div class="item-use"><b>КОГДА ПОКУПАТЬ</b><span>'+i.use+'</span></div></div></article>').join("")||'<div class="empty-state">Предметы не найдены.</div>';}
+function renderItems(){
+  const q=($("itemSearch").value||"").toLowerCase(),cat=$("itemCategory").value;
+  const list=items.filter(i=>(i.name.toLowerCase().includes(q)||i.ru.toLowerCase().includes(q))&&(cat==="all"||i.cat===cat));
+  $("itemGrid").innerHTML=list.map(i=>{
+    const attrs=(i.attributes||[]).map(a=>'<span class="item-attribute"><b>'+escapeHTML(a.key)+'</b> '+escapeHTML(a.value)+'</span>').join("");
+    const parts=(i.components||[]).map(c=>'<span class="item-component">'+escapeHTML(c.replaceAll("_"," "))+'</span>').join("");
+    const abilities=(i.abilities||[]).map(a=>'<p><b>'+escapeHTML(a.type||"Эффект")+'</b> '+escapeHTML(a.description)+'</p>').join("");
+    const notes=i.use?'<div class="item-use"><b>ПРИМЕЧАНИЯ</b><span>'+escapeHTML(i.use)+'</span></div>':"";
+    const lore=i.lore?'<p class="item-lore">'+escapeHTML(i.lore)+'</p>':"";
+    const details=(attrs||parts||abilities||lore)?'<details class="item-details"><summary>Характеристики и подробности</summary>'+(attrs?'<div class="item-attributes">'+attrs+'</div>':"")+(abilities?'<div class="item-effects">'+abilities+'</div>':"")+(parts?'<div class="item-components"><b>СОСТАВ</b>'+parts+'</div>':"")+lore+'</details>':"";
+    return '<article class="item-card"><div class="item-gem" style="background-image:linear-gradient(180deg,#10152622,#10152688),url(https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/items/'+itemSlug(i.name)+'.png)">'+escapeHTML(i.name.slice(0,1))+'</div><div class="item-info"><div class="item-title"><b>'+escapeHTML(i.name)+'</b><span>'+Number(i.cost||0).toLocaleString("ru-RU")+' <small>G</small></span></div><small class="item-ru">'+escapeHTML(i.ru)+' · '+escapeHTML(i.cat)+'</small><p>'+escapeHTML(i.desc)+'</p>'+notes+details+'</div></article>';
+  }).join("")||'<div class="empty-state">Предметы не найдены.</div>';
+}
 ["heroSearch","heroAttribute","heroRole"].forEach(id=>$(id).addEventListener(id==="heroSearch"?"input":"change",renderHeroes));["itemSearch","itemCategory"].forEach(id=>$(id).addEventListener(id==="itemSearch"?"input":"change",renderItems));
 
 function setAssistantMode(mode){
