@@ -1,15 +1,10 @@
-const $=(id)=>document.getElementById(id);
-let expanded=true;
-function render(data){
- if(!data||!data.analysis){$("liveLabel").textContent="WAITING";$("liveDot").classList.remove("online");$("hero").textContent="Ожидание игры";$("meta").textContent="Запусти Dota 2";$("action").textContent="Ожидаем данные матча";$("detail").textContent="После подключения Dota 2 здесь появится краткая рекомендация.";return;}
- const a=data.analysis;$("liveLabel").textContent="LIVE";$("liveDot").classList.add("online");
- $("hero").textContent=a.hero;$("meta").textContent="Уровень "+(a.level||"—")+" · "+a.minutes+":"+String(a.gameTime%60).padStart(2,"0");
- $("level").textContent=a.level||"—";$("kills").textContent=a.kills;$("deaths").textContent=a.deaths;$("assists").textContent=a.assists;$("gold").textContent=Number(a.gold||0).toLocaleString("ru-RU");
- $("action").textContent=a.action.title;$("detail").textContent=a.action.detail;$("reason").textContent=a.action.reason;$("priority").textContent=a.action.priority==="high"?"HIGH PRIORITY":"MATCH TIP";$("phase").textContent=a.phase.toUpperCase();
-}
-$("collapse").addEventListener("click",()=>{expanded=!expanded;$("overlay").classList.toggle("collapsed",!expanded);$("collapse").textContent=expanded?"⌃":"⌄";window.dotaAI.setOverlayExpanded(expanded);});
-$("hide").addEventListener("click",()=>window.dotaAI.hideOverlay());
-$("endSession").addEventListener("click",()=>window.dotaAI.endSession());
-window.dotaAI.onMatchUpdate(render);
-window.dotaAI.onSessionState((state)=>{if(!state.active)window.close();});
-window.dotaAI.getLatestMatch().then(render);
+const $=id=>document.getElementById(id);let active=false,match=null,popupOpen=false;
+function resize(){window.dotaAI.setOverlayExpanded(popupOpen);}
+function render(data){match=data;if(!data?.analysis)return;$("adviceTitle").textContent=data.analysis.action.title;$("adviceText").textContent=data.analysis.action.detail;}
+$("start").onclick=async()=>{if(active){await window.dotaAI.endSession();return;}const r=await window.dotaAI.startSession();active=true;$("start").textContent="■ Завершить сессию";};
+$("ai").onclick=()=>{popupOpen=!popupOpen;$("aiPanel").classList.toggle("hidden",!popupOpen);$("menuPanel").classList.add("hidden");if(match)render(match);resize();};
+$("shot").onclick=async()=>{try{await window.dotaAI.captureScreenshot();}catch(e){$("adviceTitle").textContent="Не удалось сохранить скриншот";$("adviceText").textContent=e.message;$("aiPanel").classList.remove("hidden");popupOpen=true;resize();}};
+$("menu").onclick=()=>{popupOpen=!popupOpen;$("menuPanel").classList.toggle("hidden",!popupOpen);$("aiPanel").classList.add("hidden");resize();};
+document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>{$(b.dataset.close).classList.add("hidden");popupOpen=false;resize();});
+$("openApp").onclick=()=>window.dotaAI.openMain();$("history").onclick=()=>window.dotaAI.openMain();$("hide").onclick=()=>window.dotaAI.hideOverlay();$("end").onclick=()=>window.dotaAI.endSession();
+window.dotaAI.onMatchUpdate(render);window.dotaAI.onSessionState(s=>{active=s.active;$("start").textContent=active?"■ Завершить сессию":"▶ Начать сессию";});window.dotaAI.getLatestMatch().then(render);window.dotaAI.getSession().then(s=>{active=s.active;$("start").textContent=active?"■ Завершить сессию":"▶ Начать сессию";});
