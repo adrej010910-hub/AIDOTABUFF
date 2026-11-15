@@ -74,7 +74,7 @@ jobs:
           if (-not (Test-Path $iscc)) { throw "Inno Setup compiler not found: $iscc" }
           & $iscc "installer\DOTA-AI.iss"
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE" }
-          if (-not (Test-Path "release\DOTA-AI-Setup-0.4.0.exe")) { throw "Installer EXE was not produced." }
+          if (-not (Test-Path "release\DOTA-AI-Setup-0.4.1.exe")) { throw "Installer EXE was not produced." }
 
       - name: Upload Inno Setup installer
         uses: actions/upload-artifact@v4
