@@ -6,10 +6,18 @@ function navigate(page) {
 document.querySelectorAll(".nav").forEach(btn => btn.addEventListener("click", () => navigate(btn.dataset.page)));
 $("close").addEventListener("click", () => window.dotaAI.hide());
 $("minimize").addEventListener("click", () => window.dotaAI.hide());
+$("compactMode").addEventListener("click", () => window.dotaAI.setMiniMode(true));
+$("expandMode").addEventListener("click", () => window.dotaAI.setMiniMode(false));
+$("miniHide").addEventListener("click", () => window.dotaAI.hide());
+window.dotaAI.onMiniState(isMini => {
+  document.querySelector(".window").classList.toggle("is-mini", isMini);
+  $("miniPanel").classList.toggle("hidden", !isMini);
+});
 
 function renderMatch(data) {
   const a = data.analysis;
   $("connection").textContent = "LIVE";
+  $("miniStatus").textContent = "МАТЧ · LIVE";
   $("hero").textContent = a.hero;
   $("meta").textContent = `Матч · ${a.minutes}:${String(a.gameTime % 60).padStart(2,"0")}`;
   $("level").textContent = a.level || "—";
@@ -31,6 +39,7 @@ window.dotaAI.onSetupStatus(data => {
 window.dotaAI.onNavigate(navigate);
 window.dotaAI.onDemo(() => {
   $("connection").textContent = "DEMO";
+  $("miniStatus").textContent = "ДЕМО · LIVE";
   $("hero").textContent = "Juggernaut";
   $("meta").textContent = "Демонстрационный сценарий";
   $("level").textContent = "14";
