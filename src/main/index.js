@@ -61,6 +61,7 @@ function makeWindow() {
     }
   });
   mainWindow.setAlwaysOnTop(settings.alwaysOnTop !== false, "screen-saver");
+  if (typeof settings.opacity === "number" && mainWindow.setOpacity) mainWindow.setOpacity(Math.min(1, Math.max(0.7, settings.opacity / 100)));
   mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
   mainWindow.on("closed", () => { mainWindow = null; });
   if (!process.argv.includes("--hidden") && settings.showOnLaunch) {
