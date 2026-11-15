@@ -20,6 +20,7 @@ const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
 
 function makeWindow() {
+  const appIcon = path.join(__dirname, "../../build/dota2.ico");
   mainWindow = new BrowserWindow({
     width: WINDOW_WIDTH,
     height: WINDOW_HEIGHT,
@@ -37,6 +38,7 @@ function makeWindow() {
     fullscreenable: false,
     minimizable: true,
     skipTaskbar: true,
+    icon: appIcon,
     backgroundColor: "#00000000",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
@@ -64,7 +66,7 @@ function showOverlay() {
 }
 
 function createTray() {
-  const iconPath = path.join(__dirname, "../../build/dota2-mark.svg");
+  const iconPath = path.join(__dirname, "../../build/dota2.ico");
   const icon = nativeImage.createFromPath(iconPath);
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
   tray.setToolTip("DOTA AI");
