@@ -134,7 +134,7 @@ function apiEndpoint() {
   return base.endsWith("/chat/completions") ? base : base + "/chat/completions";
 }
 
-async function requestAI(messages) {
+async function requestAI(messages, mode = "chat") {
   if (!settings.apiKey) throw new Error("Сначала добавь API key в разделе Настройки.");
   const endpoint = apiEndpoint();
   const response = await fetch(endpoint, {
@@ -147,7 +147,7 @@ async function requestAI(messages) {
       model: settings.aiModel || "gpt-4o-mini",
       temperature: 0.4,
       messages: [
-        { role: "system", content: "Ты DOTA AI — помощник по Dota 2. Отвечай на русском языке, структурированно и кратко. Помогай с выбором героев, предметами, способностями, ролями, стратегиями и анализом игровой ситуации. Не утверждай, что видишь данные матча, если они не переданы в сообщении. Уточняй патч и контекст, если они важны. Не управляй игрой и не предлагай автоматизацию игрового процесса." },
+        { role: "system", content: mode === "quick" ? "Ты DOTA AI Quick Coach — аналитик Dota 2. Отвечай на русском языке, по делу и с чёткими приоритетами. Анализируй драфт, синергию и контрпики, рекомендуй пик по позиции, следующие предметы с объяснением, прокачку, фарм-маршрут, перемещения, атаки, командные бои, Рошана, башни и защиту базы. Учитывай только переданные данные матча и известный контекст. Не выдумывай состояние здоровья, кулдауны, вижен, позиции врагов или текущие характеристики патча, если их нет во входных данных. Для рекомендаций по Рошану и объектам указывай условия безопасности и готовности команды. Если данных мало — перечисли, чего не хватает. Не управляй игрой и не предлагай автоматизацию игрового процесса." : "Ты DOTA AI — помощник по Dota 2. Отвечай на русском языке, структурированно и кратко. Помогай с выбором героев, предметами, способностями, ролями, стратегиями и анализом игровой ситуации. Не утверждай, что видишь данные матча, если они не переданы в сообщении. Уточняй патч и контекст, если они важны. Не управляй игрой и не предлагай автоматизацию игрового процесса." },
         ...messages
       ]
     }),
@@ -218,6 +218,10 @@ ipcMain.handle("ai:chat", async (_event, content, previous = []) => {
   if (typeof content !== "string" || !content.trim() || content.length > 4000) throw new Error("Сообщение пустое или слишком длинное.");
   const safeHistory = Array.isArray(previous) ? previous.slice(-20).filter(m => ["user", "assistant"].includes(m.role) && typeof m.content === "string").map(m => ({ role: m.role, content: m.content.slice(0, 4000) })) : [];
   return requestAI([...safeHistory, { role: "user", content: content.trim() }]);
+});
+ipcMain.handle("ai:quick-help", async (_event, content) => {
+  if (typeof content !== "string" || !content.trim() || content.length > 12000) throw new Error("Запрос пустой или слишком длинный.");
+  return requestAI([{ role: "user", content: content.trim() }], "quick");
 });
 ipcMain.handle("ai:test", async () => {
   const result = await requestAI([{ role: "user", content: "Ответь одним словом: готово." }]);
