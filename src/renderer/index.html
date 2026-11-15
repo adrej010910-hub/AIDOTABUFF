@@ -9,6 +9,11 @@
 </head>
 <body>
 <div class="window">
+  <div id="miniPanel" class="mini-panel hidden">
+    <div class="mini-brand"><span class="mini-mark">Ⅱ</span><span><b>DOTA <em>AI</em></b><small id="miniStatus">ОЖИДАНИЕ</small></span></div>
+    <button id="expandMode" class="mini-action" title="Развернуть окно" aria-label="Развернуть">↗</button>
+    <button id="miniHide" class="mini-action mini-close" title="Скрыть" aria-label="Скрыть">×</button>
+  </div>
   <header class="topbar">
     <div class="brand">
       <div class="brand-mark"><span>Ⅱ</span></div>
@@ -16,6 +21,7 @@
     </div>
     <div class="head-actions">
       <span id="connection" class="pill"><i></i> ОЖИДАНИЕ</span>
+      <button id="compactMode" class="window-btn compact-btn" title="Компактный режим" aria-label="Компактный режим">▁</button>
       <button id="minimize" class="window-btn" aria-label="Свернуть">—</button>
       <button id="close" class="window-btn close" aria-label="Скрыть">×</button>
     </div>
