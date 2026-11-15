@@ -65,22 +65,51 @@
       </section>
 
       <section class="page" id="assistant">
-        <div class="page-heading"><div><div class="eyebrow">YOUR DOTA STRATEGIST</div><h1>AI Ассистент</h1><p>Обсуждай драфт, игровые решения и стратегии с AI.</p></div><button class="btn-secondary" id="newSession">＋ Новая сессия</button></div>
+        <div class="page-heading"><div><div class="eyebrow">YOUR DOTA STRATEGIST</div><h1>AI Ассистент</h1><p>Два режима: свободный диалог и рекомендации по текущей игровой ситуации.</p></div><button class="btn-secondary" id="newSession">＋ Новая сессия</button></div>
+        <div class="assistant-mode-tabs">
+          <button class="assistant-mode-tab active" data-assistant-tab="chat"><span>✳</span><b>AI Чат</b><small>Вопросы и стратегия</small></button>
+          <button class="assistant-mode-tab" data-assistant-tab="quick"><span>⚡</span><b>Быстрая помощь</b><small>Пики и решения по матчу</small></button>
+        </div>
+        <div class="assistant-mode-panel active" id="assistantChatPanel">
         <div class="chat-layout">
           <aside class="chat-history panel"><div class="panel-heading"><h3>История чатов</h3><button class="icon-btn small" id="clearHistory" title="Очистить историю">⌫</button></div><div id="historyList" class="history-list"><div class="history-empty">Здесь появятся твои диалоги.</div></div><div class="history-note">История хранится локально на устройстве.</div></aside>
           <div class="chat-main panel"><div class="chat-topline"><div><b>DOTA AI <span class="ai-chip">ASSISTANT</span></b><small id="chatModelLabel">Модель не подключена</small></div><span class="live-label"><i></i> READY</span></div><div class="messages" id="messages"><div class="assistant-welcome"><div class="welcome-icon">✳</div><h2>Чем помочь в игре?</h2><p>Я помогу разобрать ситуацию, подобрать героя и составить план игры. Подключи AI API в настройках, чтобы начать диалог.</p><div class="suggestion-chips"><button data-prompt="Подбери героя против Phantom Assassin и Pudge">Контрпик по пику</button><button data-prompt="Составь стартовый билд на Lina для мида">Сборка на героя</button><button data-prompt="Как закрывать игру с преимуществом по карте?">План на игру</button></div></div></div><div class="chat-composer"><div class="composer-tools"><span>DOTА 2 KNOWLEDGE</span><span id="composerStatus">AI API не подключён</span></div><div class="composer-input"><textarea id="chatInput" rows="1" placeholder="Спроси о героях, предметах или стратегии..." maxlength="4000"></textarea><button class="attach-btn" id="attachContext" title="Добавить контекст матча">＋</button><button class="send-btn" id="sendMessage" title="Отправить">↑</button></div><div class="composer-foot">Enter — отправить · Shift + Enter — новая строка <span>AI может ошибаться — проверяй важные решения</span></div></div></div>
         </div>
+        </div>
+        <section class="assistant-mode-panel quick-help-panel" id="assistantQuickPanel">
+          <div class="quick-help-grid">
+            <div class="panel quick-input-panel">
+              <div class="panel-heading"><div><div class="eyebrow">DRAFT & MATCH ANALYSIS</div><h3>Контекст игры</h3></div><span class="live-label"><i></i> AI ANALYSIS</span></div>
+              <div class="quick-live-context" id="quickLiveContext"><span class="context-dot"></span><span>Данные матча не подключены — можно указать драфт вручную.</span></div>
+              <label class="field-label" for="quickPosition">ТВОЯ ПОЗИЦИЯ</label>
+              <select class="text-field" id="quickPosition"><option value="Не выбрана">Не выбрана</option><option value="1 — керри">1 — керри</option><option value="2 — мид">2 — мид</option><option value="3 — оффлейн">3 — оффлейн</option><option value="4 — поддержка">4 — поддержка</option><option value="5 — фулл-саппорт">5 — фулл-саппорт</option></select>
+              <label class="field-label" for="quickAllies">СОЮЗНЫЕ ГЕРОИ</label>
+              <input class="text-field" id="quickAllies" list="heroSuggestions" placeholder="Например: Axe, Crystal Maiden, Lina">
+              <label class="field-label" for="quickEnemies">ГЕРОИ ПРОТИВНИКА</label>
+              <input class="text-field" id="quickEnemies" list="heroSuggestions" placeholder="Например: Phantom Assassin, Pudge">
+              <datalist id="heroSuggestions"></datalist>
+              <label class="field-label" for="quickFocus">ЧТО НУЖНО ПРОАНАЛИЗИРОВАТЬ</label>
+              <select class="text-field" id="quickFocus"><option value="Полный анализ">Полный анализ игры</option><option value="Лучший пик и контрпики">Лучший пик и контрпики</option><option value="Следующие предметы">Следующие предметы</option><option value="Фарм и перемещения">Фарм и перемещения</option><option value="Командные драки и атака">Командные драки и атака</option><option value="Рошан и объекты">Рошан и объекты</option><option value="Защита базы и камбэк">Защита базы и камбэк</option></select>
+              <button class="btn-primary full quick-analyze-btn" id="runQuickHelp">⚡ Проанализировать ситуацию</button>
+              <p class="quick-hint">Если матч подключён, AI автоматически получит доступные GSI-данные: героя, уровень, золото, K/D/A, способности и предметы.</p>
+            </div>
+            <div class="panel quick-results-panel">
+              <div class="panel-heading"><div><div class="eyebrow">YOUR NEXT MOVE</div><h3>Рекомендации AI</h3></div><span class="subtle-label" id="quickResultStatus">ОЖИДАНИЕ АНАЛИЗА</span></div>
+              <div id="quickResults" class="quick-results-empty"><div class="quick-empty-icon">⚡</div><b>Готов к анализу</b><p>Укажи союзников и противников или подключи Dota 2. AI подготовит план действий, предметы и приоритеты.</p></div>
+            </div>
+          </div>
+        </section>
       </section>
 
       <section class="page" id="heroes">
-        <div class="page-heading"><div><div class="eyebrow">HERO DATABASE</div><h1>Герои</h1><p>Изучай роли, атрибуты и особенности персонажей.</p></div><div class="catalog-count">12 <span>ПРОФИЛЕЙ В КАТАЛОГЕ</span></div></div>
+        <div class="page-heading"><div><div class="eyebrow">HERO DATABASE</div><h1>Герои</h1><p>Изучай роли, атрибуты и особенности персонажей.</p></div><div class="catalog-count"><b id="heroCatalogCount">Загрузка…</b> <span>ГЕРОЕВ В КАТАЛОГЕ</span></div></div>
         <div class="catalog-toolbar"><div class="search-box"><span>⌕</span><input id="heroSearch" placeholder="Поиск героя..." autocomplete="off"></div><select id="heroAttribute"><option value="all">Все атрибуты</option><option value="Сила">Сила</option><option value="Ловкость">Ловкость</option><option value="Интеллект">Интеллект</option><option value="Универсальный">Универсальный</option></select><select id="heroRole"><option value="all">Все роли</option><option value="Керри">Керри</option><option value="Мидер">Мидер</option><option value="Оффлейнер">Оффлейнер</option><option value="Саппорт">Саппорт</option></select></div>
         <div class="catalog-layout"><div class="hero-grid" id="heroGrid"></div><aside class="detail-panel panel" id="heroDetail"><div class="detail-empty"><span>♟</span><b>Выбери героя</b><p>Нажми на карточку, чтобы увидеть описание и рекомендации.</p></div></aside></div>
       </section>
 
       <section class="page" id="items">
-        <div class="page-heading"><div><div class="eyebrow">ITEM DATABASE</div><h1>Предметы</h1><p>Разбирай назначение предметов и их применение.</p></div><div class="catalog-count">ITEMS <span>ITEM GUIDE</span></div></div>
-        <div class="catalog-toolbar"><div class="search-box"><span>⌕</span><input id="itemSearch" placeholder="Поиск предмета..." autocomplete="off"></div><select id="itemCategory"><option value="all">Все категории</option><option value="Стартовые">Стартовые</option><option value="Основные">Основные</option><option value="Защитные">Защитные</option><option value="Ситуационные">Ситуационные</option></select></div>
+        <div class="page-heading"><div><div class="eyebrow">ITEM DATABASE</div><h1>Предметы</h1><p>Разбирай назначение предметов и их применение.</p></div><div class="catalog-count"><b id="itemCatalogCount">Загрузка…</b> <span>ПРЕДМЕТОВ В КАТАЛОГЕ</span></div></div>
+        <div class="catalog-toolbar"><div class="search-box"><span>⌕</span><input id="itemSearch" placeholder="Поиск предмета..." autocomplete="off"></div><select id="itemCategory"><option value="all">Все категории</option><option value="Стартовые">Стартовые</option><option value="Основные">Основные</option><option value="Защитные">Защитные</option><option value="Ситуационные">Ситуационные</option><option value="Расходуемые">Расходуемые</option><option value="Нейтральные">Нейтральные</option><option value="Прочие">Прочие</option></select></div>
         <div class="item-grid" id="itemGrid"></div>
       </section>
 
