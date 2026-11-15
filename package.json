@@ -1,0 +1,50 @@
+{
+  "name": "dota-ai",
+  "version": "0.2.0",
+  "description": "DOTA AI - Windows desktop companion and overlay",
+  "main": "src/main/index.js",
+  "author": "DOTA AI",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "dist:win": "electron-builder --win nsis",
+    "dist:win:dir": "electron-builder --win dir",
+    "check": "node scripts/check-project.js"
+  },
+  "devDependencies": {
+    "electron": "^35.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.dotaai.desktop",
+    "productName": "DOTA AI",
+    "asar": true,
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "DOTA-AI-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "DOTA AI",
+      "runAfterFinish": true
+    }
+  }
+}
