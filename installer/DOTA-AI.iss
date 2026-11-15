@@ -1,5 +1,5 @@
 #define MyAppName "DOTA AI"
-#define MyAppVersion "0.4.2"
+#define MyAppVersion "0.4.3"
 #define MyAppPublisher "DOTA AI"
 
 [Setup]
