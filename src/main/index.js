@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, globalShortcut, ipcMain } = require("electron");
+const { app, BrowserWindow, screen, globalShortcut, ipcMain, Tray, Menu, nativeImage } = require("electron");
 const path = require("node:path");
 const { createGsiServer } = require("../integrations/gsi-server");
 const { findDotaInstall, installGsiConfig } = require("../integrations/dota-setup");
@@ -7,7 +7,7 @@ const { loadSettings, saveSettings } = require("../core/settings");
 
 const APP_ID = "com.dotaai.desktop";
 const PORT = 3000;
-let mainWindow = null, overlayWindow = null, gsiServer = null, latestState = null, settings = null, sessionActive = false;
+let mainWindow = null, overlayWindow = null, gsiServer = null, latestState = null, settings = null, sessionActive = false, tray = null, isQuitting = false;
 app.setAppUserModelId(APP_ID);
 if (!app.requestSingleInstanceLock()) app.quit();
 
@@ -35,11 +35,10 @@ function createMainWindow() {
   mainWindow.once("ready-to-show", () => {
     if (settings.showOnLaunch || !app.getLoginItemSettings().wasOpenedAtLogin) mainWindow.show();
   });
-  mainWindow.on("closed", () => {
-    mainWindow = null;
-    if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.close();
-    app.quit();
+  mainWindow.on("close", (event) => {
+    if (!isQuitting) { event.preventDefault(); mainWindow.hide(); }
   });
+  mainWindow.on("closed", () => { mainWindow = null; });
 }
 function createOverlayWindow() {
   if (overlayWindow && !overlayWindow.isDestroyed()) return overlayWindow;
@@ -67,6 +66,21 @@ function createOverlayWindow() {
   });
   return overlayWindow;
 }
+
+function createTray() {
+  const iconData = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAATUlEQVR4nGNgGAWjAA0ctrP6T0s86oBRB5DtgP/vXxOFRx0w4A4g5BiqOYAYdaMOGHXAqANo6oABLwcGbUk4fB1ALTzqgMHvgFEw4gAAsGHdHsEIzQ0AAAAASUVORK5CYII=";
+  tray = new Tray(nativeImage.createFromDataURL(iconData));
+  tray.setToolTip("DOTA AI");
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: "Открыть DOTA AI", click: () => { mainWindow?.show(); mainWindow?.focus(); } },
+    { label: "Начать игровую сессию", click: startSession },
+    { label: "Завершить игровую сессию", click: endSession },
+    { type: "separator" },
+    { label: "Выход", click: () => app.quit() }
+  ]));
+  tray.on("double-click", () => { mainWindow?.show(); mainWindow?.focus(); });
+}
+
 function startSession() {
   sessionActive = true;
   const win = createOverlayWindow();
@@ -93,6 +107,7 @@ function setupDotaIntegration() {
 app.whenReady().then(() => {
   settings = loadSettings();
   createMainWindow();
+  createTray();
   gsiServer = createGsiServer(PORT, (state) => {
     latestState = state;
     broadcast("match:update", currentMatch());
@@ -111,7 +126,8 @@ app.whenReady().then(() => {
 });
 app.on("second-instance", () => { if (!mainWindow) createMainWindow(); mainWindow?.show(); mainWindow?.focus(); });
 app.on("activate", () => { if (!mainWindow) createMainWindow(); mainWindow?.show(); });
-app.on("will-quit", () => { globalShortcut.unregisterAll(); gsiServer?.close(); });
+app.on("before-quit", () => { isQuitting = true; });
+app.on("will-quit", () => { globalShortcut.unregisterAll(); gsiServer?.close(); tray?.destroy(); });
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
 
 ipcMain.handle("app:get-status", () => ({
