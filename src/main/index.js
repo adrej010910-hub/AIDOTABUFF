@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, globalShortcut, ipcMain, Tray, Menu, nativeImage } = require("electron");
+const { app, BrowserWindow, screen, globalShortcut, ipcMain, Tray, Menu, nativeImage, desktopCapturer, dialog } = require("electron");
 const path = require("node:path");
 const { createGsiServer } = require("../integrations/gsi-server");
 const { findDotaInstall, installGsiConfig } = require("../integrations/dota-setup");
@@ -23,7 +23,7 @@ function currentMatch() {
 }
 function createMainWindow() {
   mainWindow = new BrowserWindow({
-    width: 1220, height: 820, minWidth: 980, minHeight: 680,
+    width: 1040, height: 650, minWidth: 760, minHeight: 520,
     show: false, frame: true, autoHideMenuBar: true,
     backgroundColor: "#0b0d14", title: "DOTA AI",
     webPreferences: {
@@ -44,8 +44,8 @@ function createOverlayWindow() {
   if (overlayWindow && !overlayWindow.isDestroyed()) return overlayWindow;
   const area = screen.getPrimaryDisplay().workArea;
   overlayWindow = new BrowserWindow({
-    width: 360, height: 430, minWidth: 320, minHeight: 150, maxWidth: 520, maxHeight: 700,
-    x: Math.max(area.x + 12, area.x + area.width - 384), y: area.y + 90,
+    width: 760, height: 76, minWidth: 650, minHeight: 76, maxWidth: 900, maxHeight: 360,
+    x: Math.max(area.x + 12, area.x + Math.floor((area.width - 760) / 2)), y: area.y + 90,
     show: false, frame: false, transparent: true, resizable: true, movable: true,
     skipTaskbar: true, alwaysOnTop: true, hasShadow: true, backgroundColor: "#00000000",
     webPreferences: {
@@ -159,6 +159,18 @@ ipcMain.on("overlay:show", () => {
   const win = createOverlayWindow(); win.show(); win.setAlwaysOnTop(true, "screen-saver");
 });
 ipcMain.on("overlay:expand", (_event, expanded) => {
-  if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.setSize(360, expanded ? 430 : 76);
+  if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.setSize(760, expanded ? 300 : 76);
+});
+ipcMain.on("app:open-main", () => { if (!mainWindow) createMainWindow(); mainWindow.show(); mainWindow.focus(); });
+ipcMain.on("app:quit", () => app.quit());
+ipcMain.handle("screen:capture", async () => {
+  const display = screen.getPrimaryDisplay();
+  const sources = await desktopCapturer.getSources({ types: ["screen"], thumbnailSize: { width: display.size.width, height: display.size.height } });
+  const source = sources.find(item => item.display_id === String(display.id)) || sources[0];
+  if (!source) throw new Error("Экран не найден");
+  const result = await dialog.showSaveDialog(mainWindow || overlayWindow, { defaultPath: "DOTA-AI-screenshot.png", filters: [{ name: "PNG image", extensions: ["png"] }] });
+  if (result.canceled || !result.filePath) return { canceled: true };
+  require("node:fs").writeFileSync(result.filePath, source.thumbnail.toPNG());
+  return { canceled: false, filePath: result.filePath };
 });
 ipcMain.on("window:minimize", () => mainWindow?.minimize());
