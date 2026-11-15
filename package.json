@@ -1,6 +1,6 @@
 {
   "name": "dota-ai",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "DOTA AI - Windows desktop companion and overlay",
   "main": "src/main/index.js",
   "author": "DOTA AI",
@@ -34,7 +34,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "artifactName": "DOTA-AI-Setup-${version}.${ext}"
