@@ -11,8 +11,10 @@ let currentMessages = [];
 let chatHistory = [];
 let activeSessionId = null;
 let toastTimer;
+let assistantMode = "chat";
+let quickHelpBusy = false;
 
-const heroes = [
+let heroes = [
  {name:"Juggernaut",ru:"Джаггернаут",attr:"Ловкость",roles:["Керри"],difficulty:"Низкая",color:"#b36b43",desc:"Гибкий керри с высокой выживаемостью благодаря Blade Fury и Healing Ward. Хорошо чувствует себя в затяжной игре.",skills:["Blade Fury","Healing Ward","Blade Dance","Omnislash"],items:["Power Treads","Battle Fury","Manta Style","Butterfly"],tip:"Используй Blade Fury для безопасного выхода из опасной ситуации и не забывай о Healing Ward в командных столкновениях."},
  {name:"Invoker",ru:"Инвокер",attr:"Интеллект",roles:["Мидер"],difficulty:"Высокая",color:"#d2a75d",desc:"Универсальный маг с большим набором заклинаний. Требует практики, хорошего понимания комбинаций и таймингов.",skills:["Quas","Wex","Exort","Invoke"],items:["Hand of Midas","Witch Blade","Aghanim's Scepter"],tip:"Выбирай комбинацию заклинаний под ситуацию: контроль, урон или помощь команде."},
  {name:"Axe",ru:"Акс",attr:"Сила",roles:["Оффлейнер"],difficulty:"Средняя",color:"#a34c46",desc:"Инициатор, который провоцирует противников атаковать его и создаёт пространство для команды.",skills:["Berserker's Call","Battle Hunger","Counter Helix","Culling Blade"],items:["Blink Dagger","Blade Mail","Black King Bar"],tip:"Ищи момент для инициации, когда союзники готовы продолжить бой."},
@@ -26,7 +28,7 @@ const heroes = [
  {name:"Windranger",ru:"ВР",attr:"Универсальный",roles:["Мидер","Саппорт"],difficulty:"Средняя",color:"#a5a45c",desc:"Мобильный универсальный герой с уклонением, контролем и высоким уроном по одной цели.",skills:["Shackleshot","Powershot","Windrun","Focus Fire"],items:["Maelstrom","Gleipnir","Black King Bar"],tip:"Используй мобильность для смены позиции, а не для бездумного преследования."},
  {name:"Tidehunter",ru:"Тайдхантер",attr:"Сила",roles:["Оффлейнер"],difficulty:"Низкая",color:"#4f8494",desc:"Выносливый инициатор с сильным массовым контролем и хорошей устойчивостью.",skills:["Gush","Kraken Shell","Anchor Smash","Ravage"],items:["Blink Dagger","Pipe of Insight","Refresher Orb"],tip:"Координируй Ravage с готовностью команды продолжить бой."}
 ];
-const items = [
+let items = [
  {name:"Blink Dagger",ru:"Кинжал блинка",cost:2250,cat:"Основные",desc:"Позволяет мгновенно переместиться на короткое расстояние. Ключевой инструмент инициации и смены позиции.",use:"Инициаторам, героям с точечным контролем и персонажам, которым важна мобильность."},
  {name:"Black King Bar",ru:"БКБ",cost:4050,cat:"Защитные",desc:"Даёт возможность временно противостоять многим видам магического контроля и воздействия.",use:"Покупай, когда контроль и магические угрозы мешают выполнять твою роль."},
  {name:"Force Staff",ru:"Форс стафф",cost:2200,cat:"Ситуационные",desc:"Перемещает выбранного союзника или себя вперёд. Помогает спасать героев и менять позицию.",use:"Полезен против замедлений, узких проходов и для спасения союзников."},
@@ -40,9 +42,64 @@ const items = [
  {name:"Observer Ward",ru:"Обсерв",cost:0,cat:"Стартовые",desc:"Раскрывает область карты на время. Помогает контролировать перемещения.",use:"Размещай обзор с учётом целей команды и безопасных маршрутов."},
  {name:"Dust of Appearance",ru:"Даст",cost:80,cat:"Ситуационные",desc:"Помогает обнаруживать невидимых противников в области действия.",use:"Покупай при наличии невидимых угроз и координируй использование с командой."}
 ];
+
+const heroRoleNames = {Carry:"Керри",Mid:"Мидер",Offlane:"Оффлейнер",Support:"Саппорт",Durable:"Танк",Disabler:"Контроль",Initiator:"Инициатор",Nuker:"Магический урон",Escape:"Мобильность",Pusher:"Пуш",Jungler:"Лес"};
+const heroAttrNames = {str:"Сила",agi:"Ловкость",int:"Интеллект",all:"Универсальный"};
+function splitRoles(roles){return (roles||[]).map(r=>heroRoleNames[r]||r).slice(0,4);}
+function classifyItem(item,key){
+  const q=String(item.qual||"").toLowerCase(), c=String(item.type||"").toLowerCase();
+  if(q.includes("consumable")||/ward|dust|smoke|clarity|tango|salve|potion|cheese|gem|flask/.test(key))return "Расходуемые";
+  if(q.includes("artifact")||q.includes("secret_shop")||q.includes("rare"))return "Основные";
+  if(/neutral|tier_/.test(key)||q.includes("neutral"))return "Нейтральные";
+  if(q.includes("component")||q.includes("common")||q.includes("basic"))return "Стартовые";
+  if(item.cost===0)return "Прочие";
+  return "Ситуационные";
+}
+async function loadCompleteDotaCatalog(){
+  const cacheKey="dotaAI.catalog.v1";
+  try{
+    const cached=JSON.parse(localStorage.getItem(cacheKey)||"null");
+    if(cached?.heroes?.length>100&&cached?.items?.length>100){applyCompleteCatalog(cached);return;}
+  }catch{}
+  try{
+    const [heroRes,itemRes]=await Promise.all([
+      fetch("https://api.opendota.com/api/constants/heroes",{cache:"no-cache"}),
+      fetch("https://api.opendota.com/api/constants/items",{cache:"no-cache"})
+    ]);
+    if(!heroRes.ok||!itemRes.ok)throw new Error("Каталог временно недоступен");
+    const [heroData,itemData]=await Promise.all([heroRes.json(),itemRes.json()]);
+    const allHeroes=Object.values(heroData).map(h=>({
+      name:h.localized_name||h.name,ru:h.localized_name||h.name,slug:String(h.name||"").replace("npc_dota_hero_",""),
+      attr:heroAttrNames[h.primary_attr]||"Универсальный",roles:splitRoles(h.roles),difficulty:"Зависит от навыка",
+      color:"#7769a8",desc:(h.attack_type||"Герой")+" · "+(h.roles||[]).join(", ")+". Роль и сильные стороны зависят от состава команд и текущего патча.",
+      skills:[],items:[],tip:"Учитывай состав обеих команд, тайминги способностей и актуальные изменения патча."
+    })).sort((a,b)=>a.name.localeCompare(b.name));
+    const allItems=Object.entries(itemData).filter(([key,v])=>v&&v.dname).map(([key,v])=>({
+      name:v.dname,ru:v.dname,slug:key,cost:Number(v.cost||0),cat:classifyItem(v,key),
+      desc:String(v.desc||v.notes||"Предмет Dota 2. Проверь актуальные характеристики и эффект в игре."),
+      use:String(v.notes||v.lore||"Выбирай с учётом героя, вражеских угроз и текущей ситуации.")
+    })).sort((a,b)=>a.name.localeCompare(b.name));
+    if(allHeroes.length<100||allItems.length<100)throw new Error("Получен неполный каталог");
+    const payload={heroes:allHeroes,items:allItems,updatedAt:Date.now()};
+    localStorage.setItem(cacheKey,JSON.stringify(payload));
+    applyCompleteCatalog(payload);
+  }catch(error){
+    $("heroCatalogCount").textContent=heroes.length;
+    $("itemCatalogCount").textContent=items.length;
+    showToast("Полный каталог не загрузился. Пока доступны базовые данные.");
+  }
+}
+function applyCompleteCatalog(data){
+  heroes=data.heroes;items=data.items;
+  $("heroCatalogCount").textContent=heroes.length;
+  $("itemCatalogCount").textContent=items.length;
+  $("heroSuggestions").innerHTML=heroes.map(h=>'<option value="'+escapeHTML(h.name)+'"></option>').join("");
+  renderPopular();renderHeroes();renderItems();
+}
+
 const heroColors = h => h.color;
 function showToast(message){const el=$("toast");if(!el)return;el.textContent=message;el.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove("show"),2600);}
-function navigate(page){if(!pages.includes(page))return;document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.id===page));document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.page===page));$("pageCrumb").textContent=pageNames[page];if(page==="assistant")renderHistory();if(page==="heroes")renderHeroes();if(page==="items")renderItems();if(page==="matches")renderMatchHistory();}
+function navigate(page){if(!pages.includes(page))return;document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.id===page));document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.page===page));$("pageCrumb").textContent=pageNames[page];if(page==="assistant"){renderHistory();if(assistantMode==="quick")refreshQuickLiveContext();}if(page==="heroes")renderHeroes();if(page==="items")renderItems();if(page==="matches")renderMatchHistory();}
 document.querySelectorAll("[data-page]").forEach(b=>b.addEventListener("click",()=>navigate(b.dataset.page)));
 document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>navigate(b.dataset.go)));
 document.querySelectorAll("[data-prompt]").forEach(b=>b.addEventListener("click",()=>{navigate("assistant");setTimeout(()=>{$("chatInput").value=b.dataset.prompt;$("chatInput").focus();},0);}));
@@ -51,7 +108,7 @@ $("newSessionTop").addEventListener("click",()=>{navigate("assistant");newSessio
 window.dotaAI.onMiniState(isMini=>{document.body.classList.toggle("mini-mode",isMini);$("miniStatus").textContent=latestMatch?"MATCH · LIVE":"AI READY";});
 $("expandMode").addEventListener("click",()=>window.dotaAI.setMiniMode(false));
 $("miniHide").addEventListener("click",()=>window.dotaAI.hide());
-window.dotaAI.onMatchUpdate(data=>{latestMatch=data;renderMatch(data);});
+window.dotaAI.onMatchUpdate(data=>{latestMatch=data;renderMatch(data);refreshQuickLiveContext();});
 window.dotaAI.onSetupStatus(data=>{showToast(data.message);});
 window.dotaAI.onNavigate(navigate);
 window.dotaAI.onDemo(()=>showToast("Демонстрационный режим отключён в этой версии."));
@@ -59,12 +116,69 @@ function loadMatchArchive(){try{matchHistory=JSON.parse(localStorage.getItem("do
 function archiveMatch(data,a){const gameTime=Number(a.gameTime||0);const matchId=data.state?.map?.matchid?String(data.state.map.matchid):null;if(matchId)activeMatchId=matchId;else if(previousGameTime>gameTime+90)activeMatchId=null;if(!activeMatchId)activeMatchId="session-"+Date.now();previousGameTime=gameTime;let record=matchHistory.find(m=>m.id===activeMatchId);if(!record){record={id:activeMatchId,startedAt:Date.now()};matchHistory.unshift(record);matchHistory=matchHistory.slice(0,50);}record.hero=a.hero;record.updatedAt=Date.now();record.analysis={hero:a.hero,level:a.level,kills:a.kills,deaths:a.deaths,assists:a.assists,gold:a.gold,minutes:a.minutes,phase:a.phase,action:a.action};if(Date.now()-lastMatchPersist>10000||!lastMatchPersist){localStorage.setItem("dotaAI.matchHistory",JSON.stringify(matchHistory));lastMatchPersist=Date.now();}}
 function renderMatch(data){const a=data.analysis;if(!a)return;archiveMatch(data,a);$("miniStatus").textContent="MATCH · LIVE";$("connectionText").textContent="Dota 2 подключена";$("connectionOrb").classList.add("online");$("sidebarStatus").textContent="Матч активен";$("sidebarSub").textContent="GSI · Live data";$("metricMatch").textContent=a.hero;$("metricMatchHint").textContent="Получены данные игрового состояния";$("matchStatus").textContent="LIVE";$("matchStatus").classList.add("online");$("matchEmpty").classList.add("hidden");$("liveMatch").classList.remove("hidden");$("liveHeroName").textContent=a.hero;$("liveHeroAvatar").textContent=(a.hero||"?").slice(0,1).toUpperCase();$("liveGameTime").textContent=Math.floor(a.gameTime/60)+":"+String(a.gameTime%60).padStart(2,"0")+" · В игре";$("liveKDA").textContent=[a.kills,a.deaths,a.assists].join(" / ");$("liveGold").textContent=Number(a.gold||0).toLocaleString("ru-RU");$("liveLevel").textContent=a.level||"—";$("liveAdvice").textContent=a.action?.title||"Матч получен";$("metricMatch").textContent="В игре";$("metricMatchHint").textContent=a.hero+" · "+a.phase;$("footerStatus").textContent="GSI подключён · v"+(settings.version||"0.3.0");renderMatchHistory();}
 function renderPopular(){const el=$("popularHeroes");el.innerHTML=heroes.slice(0,6).map(h=>'<button class="popular-hero" data-hero="'+h.name+'"><span class="popular-avatar" style="--hero-color:'+h.color+'">'+h.name.slice(0,1)+'</span><span><b>'+h.name+'</b><small>'+h.roles.join(" · ")+'</small></span><i>→</i></button>').join("");el.querySelectorAll("[data-hero]").forEach(b=>b.addEventListener("click",()=>{navigate("heroes");selectHero(b.dataset.hero);}));}
-function heroSlug(name){return ({ "Juggernaut":"juggernaut","Invoker":"invoker","Axe":"axe","Crystal Maiden":"crystal_maiden","Phantom Assassin":"phantom_assassin","Pudge":"pudge","Lina":"lina","Mars":"mars","Drow Ranger":"drow_ranger","Rubick":"rubick","Windranger":"windrunner","Tidehunter":"tidehunter" })[name]||name.toLowerCase().replaceAll(" ","_");}
+function heroSlug(name){const hero=heroes.find(h=>h.name===name);return hero?.slug||({ "Juggernaut":"juggernaut","Invoker":"invoker","Axe":"axe","Crystal Maiden":"crystal_maiden","Phantom Assassin":"phantom_assassin","Pudge":"pudge","Lina":"lina","Mars":"mars","Drow Ranger":"drow_ranger","Rubick":"rubick","Windranger":"windrunner","Tidehunter":"tidehunter" })[name]||name.toLowerCase().replaceAll(" ","_");}
 function renderHeroes(){const q=($("heroSearch").value||"").toLowerCase();const attr=$("heroAttribute").value;const role=$("heroRole").value;const list=heroes.filter(h=>(h.name.toLowerCase().includes(q)||h.ru.toLowerCase().includes(q))&&(attr==="all"||h.attr===attr)&&(role==="all"||h.roles.includes(role)));$("heroGrid").innerHTML=list.map(h=>'<button class="hero-card" data-hero="'+h.name+'"><span class="hero-art" style="--hero-color:'+h.color+';background-image:linear-gradient(180deg,#15182722,#14182799),url(https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/'+heroSlug(h.name)+'.png)"><b>'+h.name.slice(0,1)+'</b><small>'+h.attr.toUpperCase()+'</small></span><span class="hero-card-info"><b>'+h.name+'</b><small>'+h.ru+' · '+h.roles[0]+'</small></span></button>').join("")||'<div class="empty-state">Ничего не найдено. Измени параметры поиска.</div>';document.querySelectorAll("#heroGrid [data-hero]").forEach(b=>b.addEventListener("click",()=>selectHero(b.dataset.hero)));}
 function selectHero(name){const h=heroes.find(x=>x.name===name);if(!h)return;document.querySelectorAll(".hero-card").forEach(b=>b.classList.toggle("selected",b.dataset.hero===name));$("heroDetail").innerHTML='<div class="detail-hero-art" style="--hero-color:'+h.color+';background-image:linear-gradient(180deg,#15182722,#14182799),url(https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/'+heroSlug(h.name)+'.png)"><span>'+h.name.slice(0,1)+'</span><small>'+h.attr.toUpperCase()+'</small></div><div class="eyebrow">HERO PROFILE</div><h2>'+h.name+'</h2><p class="detail-sub">'+h.ru+' · '+h.roles.join(" / ")+'</p><p class="detail-description">'+h.desc+'</p><div class="detail-meta"><span>СЛОЖНОСТЬ</span><b>'+h.difficulty+'</b></div><h4>Ключевые способности</h4><div class="skill-tags">'+h.skills.map(s=>'<span>'+s+'</span>').join("")+'</div><h4>Пример предметов</h4><div class="skill-tags">'+h.items.map(s=>'<span>'+s+'</span>').join("")+'</div><div class="detail-tip"><b>AI TIP</b><p>'+h.tip+'</p></div><button class="btn-primary full" id="askHero">Спросить AI об этом герое →</button>';$("askHero").addEventListener("click",()=>{navigate("assistant");$("chatInput").value="Расскажи о "+h.name+": сильные стороны, слабости, предметы и план игры.";});}
-function itemSlug(name){return ({ "Blink Dagger":"blink","Black King Bar":"black_king_bar","Force Staff":"force_staff","Glimmer Cape":"glimmer_cape","Power Treads":"power_treads","Magic Wand":"magic_wand","Aghanim's Scepter":"ultimate_scepter","Manta Style":"manta","Pipe of Insight":"pipe","Force Boots":"force_boots","Observer Ward":"ward_observer","Dust of Appearance":"dust" })[name]||name.toLowerCase().replaceAll(" ","_");}
+function itemSlug(name){const item=items.find(i=>i.name===name);return item?.slug||({ "Blink Dagger":"blink","Black King Bar":"black_king_bar","Force Staff":"force_staff","Glimmer Cape":"glimmer_cape","Power Treads":"power_treads","Magic Wand":"magic_wand","Aghanim's Scepter":"ultimate_scepter","Manta Style":"manta","Pipe of Insight":"pipe","Force Boots":"force_boots","Observer Ward":"ward_observer","Dust of Appearance":"dust" })[name]||name.toLowerCase().replaceAll(" ","_");}
 function renderItems(){const q=($("itemSearch").value||"").toLowerCase();const cat=$("itemCategory").value;const list=items.filter(i=>(i.name.toLowerCase().includes(q)||i.ru.toLowerCase().includes(q))&&(cat==="all"||i.cat===cat));$("itemGrid").innerHTML=list.map(i=>'<article class="item-card"><div class="item-gem" style="background-image:linear-gradient(180deg,#10152622,#10152688),url(https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/items/'+itemSlug(i.name)+'.png)">'+i.name.slice(0,1)+'</div><div class="item-info"><div class="item-title"><b>'+i.name+'</b><span>'+i.cost.toLocaleString("ru-RU")+' <small>G</small></span></div><small class="item-ru">'+i.ru+' · '+i.cat+'</small><p>'+i.desc+'</p><div class="item-use"><b>КОГДА ПОКУПАТЬ</b><span>'+i.use+'</span></div></div></article>').join("")||'<div class="empty-state">Предметы не найдены.</div>';}
 ["heroSearch","heroAttribute","heroRole"].forEach(id=>$(id).addEventListener(id==="heroSearch"?"input":"change",renderHeroes));["itemSearch","itemCategory"].forEach(id=>$(id).addEventListener(id==="itemSearch"?"input":"change",renderItems));
+
+function setAssistantMode(mode){
+  assistantMode=mode==="quick"?"quick":"chat";
+  document.querySelectorAll("[data-assistant-tab]").forEach(b=>b.classList.toggle("active",b.dataset.assistantTab===assistantMode));
+  $("assistantChatPanel").classList.toggle("active",assistantMode==="chat");
+  $("assistantQuickPanel").classList.toggle("active",assistantMode==="quick");
+  if(assistantMode==="quick")refreshQuickLiveContext();
+}
+document.querySelectorAll("[data-assistant-tab]").forEach(b=>b.addEventListener("click",()=>setAssistantMode(b.dataset.assistantTab)));
+function refreshQuickLiveContext(){
+  const el=$("quickLiveContext");
+  if(!latestMatch?.state){el.innerHTML='<span class="context-dot"></span><span>Данные матча не подключены — можно указать драфт вручную.</span>';return;}
+  const a=latestMatch.analysis||{},s=latestMatch.state||{};
+  const inventory=Object.values(s.items||{}).map(i=>i?.name).filter(Boolean).join(", ");
+  el.innerHTML='<span class="context-dot online"></span><span>GSI подключён · '+escapeHTML(a.hero||"Герой")+' · '+Number(a.minutes||0)+' мин. · '+Number(a.kills||0)+'/'+Number(a.deaths||0)+'/'+Number(a.assists||0)+(inventory?' · Предметы: '+escapeHTML(inventory):"")+'</span>';
+}
+function getQuickMatchContext(){
+  if(!latestMatch)return "Активные данные GSI не получены.";
+  const s=latestMatch.state||{},a=latestMatch.analysis||{};
+  const p=s.player||{},h=s.hero||{},m=s.map||{};
+  const abilities=Object.values(s.abilities||{}).map(x=>({name:x.name,level:x.level,cooldown:x.cooldown})).filter(x=>x.name);
+  const inventory=Object.values(s.items||{}).map(x=>({name:x.name,can_cast:x.can_cast,charges:x.count,cooldown:x.cooldown})).filter(x=>x.name);
+  return JSON.stringify({hero:a.hero,level:h.level,kills:p.kills,deaths:p.deaths,assists:p.assists,gold:p.gold,gameTime:m.game_time,phase:a.phase,abilities,items:inventory,localAnalysis:a.action},null,2);
+}
+async function runQuickHelp(){
+  if(quickHelpBusy)return;
+  const allies=$("quickAllies").value.trim(),enemies=$("quickEnemies").value.trim();
+  if(!allies&&!enemies&&!latestMatch){showToast("Укажи хотя бы одного героя или подключи матч Dota 2.");return;}
+  const focus=$("quickFocus").value,position=$("quickPosition").value;
+  const prompt=[
+    "Проведи быстрый, конкретный анализ Dota 2. Отвечай на русском языке.",
+    "Позиция игрока: "+position,
+    "Союзные герои: "+(allies||"не указаны"),
+    "Герои противника: "+(enemies||"не указаны"),
+    "Запрос: "+focus,
+    "Текущие данные GSI (если доступны): "+getQuickMatchContext(),
+    "Каталог героев в приложении: "+heroes.length+" героев. Используй реальные имена героев Dota 2. Не выдумывай отсутствующие данные.",
+    "Сформируй ответ по разделам: 1) лучший пик/контрпики (если пик ещё выбирается — 2-3 варианта и почему; если герой уже выбран — не советуй сменить его), 2) следующий предмет и дальнейшая сборка с порядком, 3) прокачка способностей только если есть данные или уверенное основание, 4) что делать следующие 2-4 минуты: фарм, линии, перемещения, 5) когда драться/атаковать или отступать, 6) условия для Рошана и других объектов, 7) главная опасность и короткий план.",
+    "Не предлагай одну и ту же универсальную сборку всем героям. Учитывай роли, синергию, контрпики, темп, текущие предметы и стадию матча. Если данных мало, явно напиши что неизвестно и не выдавай догадки за факты. Не управляй игрой автоматически."
+  ].join("\n\n");
+  quickHelpBusy=true;
+  const button=$("runQuickHelp");button.disabled=true;button.textContent="Анализирую драфт и матч…";
+  $("quickResultStatus").textContent="AI АНАЛИЗИРУЕТ";
+  $("quickResults").innerHTML='<div class="quick-loading"><span class="loading-orbit"></span><b>Анализирую составы и игровую ситуацию</b><p>Сопоставляю роли, предметы, тайминги и цели команды…</p></div>';
+  try{
+    const result=await window.dotaAI.quickHelp(prompt);
+    $("quickResultStatus").textContent="АНАЛИЗ ГОТОВ";
+    $("quickResults").innerHTML='<div class="quick-result-content">'+formatText(result.reply)+'</div><div class="quick-result-foot"><span>Модель: '+escapeHTML(result.model||settings.aiModel||"AI")+'</span><button class="copy-answer" id="copyQuickResult">▢ Копировать рекомендации</button></div>';
+    $("copyQuickResult").addEventListener("click",()=>navigator.clipboard.writeText(result.reply).then(()=>showToast("Рекомендации скопированы")).catch(()=>showToast("Не удалось скопировать")));
+  }catch(error){
+    $("quickResultStatus").textContent="ОШИБКА";
+    $("quickResults").innerHTML='<div class="quick-error"><b>Не удалось получить анализ</b><p>'+escapeHTML(error.message||"Проверь настройки AI API.")+'</p><button class="btn-secondary" id="retryQuickHelp">Повторить</button></div>';
+    $("retryQuickHelp").addEventListener("click",runQuickHelp);
+  }finally{quickHelpBusy=false;button.disabled=false;button.textContent="⚡ Проанализировать ситуацию";}
+}
+$("runQuickHelp").addEventListener("click",runQuickHelp);
+
 function loadHistory(){try{chatHistory=JSON.parse(localStorage.getItem("dotaAI.chatHistory")||"[]");}catch{chatHistory=[];}}
 function persistHistory(){localStorage.setItem("dotaAI.chatHistory",JSON.stringify(chatHistory.slice(0,30)));$("metricSessions").textContent=chatHistory.length;}
 function renderHistory(){$("historyList").innerHTML=chatHistory.length?chatHistory.map((s,i)=>'<button class="history-item '+(s.id===activeSessionId?"active":"")+'" data-history="'+i+'"><b>'+escapeHTML(s.title)+'</b><small>'+new Date(s.updatedAt).toLocaleString("ru-RU")+'</small></button>').join(""):'<div class="history-empty">Здесь появятся твои диалоги.</div>';document.querySelectorAll("[data-history]").forEach(b=>b.addEventListener("click",()=>{const s=chatHistory[Number(b.dataset.history)];activeSessionId=s.id;currentMessages=s.messages||[];renderMessages();renderHistory();}));}
@@ -86,5 +200,5 @@ $("opacity").addEventListener("input",()=>{$("opacityValue").textContent=$("opac
 $("setupDota").addEventListener("click",async()=>{const r=await window.dotaAI.setupDota();showToast(r.message);});
 $("clearChatData").addEventListener("click",()=>{if(!confirm("Удалить сохранённую историю диалогов?"))return;chatHistory=[];persistHistory();renderHistory();showToast("История удалена");});
 $("modelQuick").addEventListener("change",()=>{$("apiModel").value=$("modelQuick").value==="custom"?$("apiModel").value:$("modelQuick").value;saveSettings();});
-async function init(){loadHistory();loadMatchArchive();renderPopular();renderHeroes();renderItems();renderHistory();$("metricSessions").textContent=chatHistory.length;try{settings=await window.dotaAI.getSettings();$("version").textContent=settings.version||"0.3.0";$("apiBaseUrl").value=settings.apiBaseUrl||"https://api.openai.com/v1";$("apiModel").value=settings.aiModel||"gpt-4o-mini";$("startup").checked=Boolean(settings.launchAtLogin);$("showLaunch").checked=Boolean(settings.showOnLaunch);$("alwaysOnTop").checked=settings.alwaysOnTop!==false;$("notifications").checked=Boolean(settings.notifications);$("opacity").value=settings.opacity||96;$("opacityValue").textContent=$("opacity").value+"%";$("language").value=settings.language||"ru";$("modelQuick").value=["gpt-4o-mini","gpt-4.1-mini"].includes(settings.aiModel)?settings.aiModel:"custom";if(settings.apiKeyConfigured){$("sidebarStatus").textContent="AI настроен";$("sidebarSub").textContent="API configured";$("metricAI").textContent="Подключён";$("metricAIHint").textContent="Готов к запросам";$("composerStatus").textContent="AI API готов";$("chatModelLabel").textContent=settings.aiModel;}const status=await window.dotaAI.getStatus();$("settingsAppStatus").textContent=status.dotaFound?"Dota 2 обнаружена":"Ожидание Dota 2";latestMatch=await window.dotaAI.getLatestMatch();if(latestMatch)renderMatch(latestMatch);}catch(e){showToast("Не удалось загрузить настройки");}}
+async function init(){loadHistory();loadMatchArchive();renderPopular();renderHeroes();renderItems();renderHistory();loadCompleteDotaCatalog();$("metricSessions").textContent=chatHistory.length;try{settings=await window.dotaAI.getSettings();$("version").textContent=settings.version||"0.3.0";$("apiBaseUrl").value=settings.apiBaseUrl||"https://api.openai.com/v1";$("apiModel").value=settings.aiModel||"gpt-4o-mini";$("startup").checked=Boolean(settings.launchAtLogin);$("showLaunch").checked=Boolean(settings.showOnLaunch);$("alwaysOnTop").checked=settings.alwaysOnTop!==false;$("notifications").checked=Boolean(settings.notifications);$("opacity").value=settings.opacity||96;$("opacityValue").textContent=$("opacity").value+"%";$("language").value=settings.language||"ru";$("modelQuick").value=["gpt-4o-mini","gpt-4.1-mini"].includes(settings.aiModel)?settings.aiModel:"custom";if(settings.apiKeyConfigured){$("sidebarStatus").textContent="AI настроен";$("sidebarSub").textContent="API configured";$("metricAI").textContent="Подключён";$("metricAIHint").textContent="Готов к запросам";$("composerStatus").textContent="AI API готов";$("chatModelLabel").textContent=settings.aiModel;}const status=await window.dotaAI.getStatus();$("settingsAppStatus").textContent=status.dotaFound?"Dota 2 обнаружена":"Ожидание Dota 2";latestMatch=await window.dotaAI.getLatestMatch();if(latestMatch)renderMatch(latestMatch);}catch(e){showToast("Не удалось загрузить настройки");}}
 init();
