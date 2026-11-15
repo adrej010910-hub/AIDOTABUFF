@@ -1,31 +1,85 @@
 <!doctype html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>DOTA AI</title><link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https://cdn.akamai.steamstatic.com https://shared.akamai.steamstatic.com; style-src 'self' 'unsafe-inline'; script-src 'self';">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DOTA AI</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="window">
-  <header><div class="brand"><div class="mark">D</div><div><b>DOTA AI</b><small>SMART MATCH COMPANION</small></div></div><div class="head-actions"><span id="connection" class="pill">ОЖИДАНИЕ</span><button id="minimize">—</button><button id="close">×</button></div></header>
-  <nav><button class="nav active" data-page="match">Матч</button><button class="nav" data-page="settings">Настройки</button></nav>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark"><span>Ⅱ</span></div>
+      <div><b>DOTA <em>AI</em></b><small>MATCH COMPANION</small></div>
+    </div>
+    <div class="head-actions">
+      <span id="connection" class="pill"><i></i> ОЖИДАНИЕ</span>
+      <button id="minimize" class="window-btn" aria-label="Свернуть">—</button>
+      <button id="close" class="window-btn close" aria-label="Скрыть">×</button>
+    </div>
+  </header>
+
+  <div class="game-banner">
+    <img src="https://cdn.akamai.steamstatic.com/steam/apps/570/header.jpg" alt="Dota 2" onerror="this.style.display='none'">
+    <div class="banner-shade"></div>
+    <div class="banner-caption"><span>GAME ASSISTANT</span><b>DOTA 2</b></div>
+    <div class="banner-version">EARLY ACCESS · v0.2.0</div>
+  </div>
+
+  <nav class="tabs">
+    <button class="nav active" data-page="match"><span>◈</span> Матч</button>
+    <button class="nav" data-page="settings"><span>⚙</span> Настройки</button>
+  </nav>
+
   <main id="match" class="page">
-    <div class="intro"><div><small>ТВОЙ ГЕРОЙ</small><h1 id="hero">Ожидание Dota 2</h1><p id="meta">Запусти игру — приложение подключится автоматически</p></div><div class="level"><small>LVL</small><b id="level">—</b></div></div>
-    <div class="stats"><div><small>K</small><b id="kills">—</b></div><div><small>D</small><b id="deaths">—</b></div><div><small>A</small><b id="assists">—</b></div><div><small>GOLD</small><b id="gold">—</b></div></div>
-    <section class="card accent"><div class="card-head">РЕКОМЕНДАЦИЯ <span id="priority">●</span></div><h2 id="action">Пока нет данных матча</h2><p id="detail">DOTA AI будет анализировать доступные игровые показатели и показывать краткие подсказки.</p><small id="reason">Ожидается подключение через GSI</small></section>
-    <section class="card"><div class="card-head">АНАЛИЗ МАТЧА <span id="phase">—</span></div><div class="row"><span>Состояние подключения</span><b id="data">Не подключено</b></div><div class="row"><span>Следующая покупка</span><b>Модуль в разработке</b></div><div class="row"><span>Шанс победы</span><b>Модуль в разработке</b></div></section>
-    <p class="footnote">Советы не управляют героем и используют только доступные игровые данные.</p>
+    <div class="section-heading"><div><small>ТЕКУЩАЯ СЕССИЯ</small><h1 id="hero">Ожидание Dota 2</h1><p id="meta">Запусти игру — приложение подключится автоматически</p></div><div class="level"><small>УРОВЕНЬ</small><b id="level">—</b></div></div>
+
+    <div class="stats">
+      <div><small>УБИЙСТВА</small><b id="kills">—</b><i>K</i></div>
+      <div><small>СМЕРТИ</small><b id="deaths">—</b><i>D</i></div>
+      <div><small>ПОМОЩЬ</small><b id="assists">—</b><i>A</i></div>
+      <div><small>ЗОЛОТО</small><b id="gold">—</b><i>G</i></div>
+    </div>
+
+    <section class="card recommendation">
+      <div class="card-head"><span class="live-dot"></span> РЕКОМЕНДАЦИЯ AI <span id="priority" class="priority">ОЖИДАНИЕ</span></div>
+      <h2 id="action">Пока нет данных матча</h2>
+      <p id="detail">DOTA AI анализирует доступные игровые показатели и будет показывать краткие подсказки.</p>
+      <div class="reason" id="reason">Ожидается подключение через GSI</div>
+    </section>
+
+    <section class="card analysis-card">
+      <div class="card-head">АНАЛИТИКА МАТЧА <span id="phase" class="phase">—</span></div>
+      <div class="row"><span>Подключение к игре</span><b id="data">Не подключено</b></div>
+      <div class="row"><span>Следующая покупка</span><b>В разработке</b></div>
+      <div class="row"><span>Оценка преимущества</span><b>В разработке</b></div>
+    </section>
+    <p class="footnote">Подсказки используют только данные, доступные через Game State Integration.</p>
   </main>
+
   <main id="settings" class="page hidden">
-    <h1>Настройки</h1>
-    <section class="card">
-      <label class="setting"><span><b>Запуск вместе с Windows</b><small>Автоматически запускать DOTA AI при входе в систему</small></span><input type="checkbox" id="startup" checked></label>
+    <div class="section-heading"><div><small>ПЕРСОНАЛИЗАЦИЯ</small><h1>Настройки</h1><p>Управление приложением и подключением</p></div></div>
+    <section class="card settings-card">
+      <label class="setting"><span><b>Запуск вместе с Windows</b><small>Автоматически запускать DOTA AI при входе</small></span><input type="checkbox" id="startup" checked></label>
       <label class="setting"><span><b>Показывать окно при запуске</b><small>Если выключено, приложение останется в трее</small></span><input type="checkbox" id="showLaunch"></label>
       <label class="setting"><span><b>Голосовые подсказки</b><small>Подготовка к следующему этапу</small></span><input type="checkbox" id="voice"></label>
     </section>
-    <section class="card"><div class="card-head">ПОДКЛЮЧЕНИЕ К DOTA 2</div><p id="setupText">Проверка папки игры...</p><button id="retrySetup" class="primary">Найти и настроить Dota 2</button><p class="hint">Горячая клавиша: Ctrl + Shift + Space — показать или скрыть оверлей.</p></section>
-    <section class="card"><div class="card-head">О ПРИЛОЖЕНИИ</div><div class="row"><span>Версия</span><b id="version">0.2.0</b></div><div class="row"><span>AI-режим</span><b>Гибридный (локальные правила)</b></div></section>
+    <section class="card">
+      <div class="card-head">ПОДКЛЮЧЕНИЕ К DOTA 2</div>
+      <p id="setupText">Проверка папки игры...</p>
+      <button id="retrySetup" class="primary">Найти и настроить Dota 2</button>
+      <p class="hint">Ctrl + Shift + Space — показать или скрыть оверлей.</p>
+    </section>
+    <section class="card">
+      <div class="card-head">О ПРИЛОЖЕНИИ</div>
+      <div class="row"><span>Версия</span><b id="version">0.2.0</b></div>
+      <div class="row"><span>Режим анализа</span><b>Локальные правила</b></div>
+    </section>
   </main>
-  <footer><span>DOTA AI · PRIVATE LOCAL ANALYSIS</span><span>v0.2.0</span></footer>
+  <footer><span><i class="footer-dot"></i> LOCAL ANALYSIS ENGINE</span><span> DOTA AI · 0.2.0</span></footer>
 </div>
 <script src="renderer.js"></script>
-</body></html>
+</body>
+</html>
